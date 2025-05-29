@@ -1,0 +1,22 @@
+# Local virtual environment
+.venv/
+
+# Terraform local state and plugins
+.terraform/
+
+# Terraform plan files
+*.tfplan
+*.out
+
+# Terraform state backup files (if local state is ever used)
+# terraform.tfstate.backup
+
+# Crash log files
+crash.log
+
+# Terraform lock file (optional, but often committed)
+# .terraform.lock.hcl
+
+# OS-specific files
+.DS_Store
+Thumbs.db
