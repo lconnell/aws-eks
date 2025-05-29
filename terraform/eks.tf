@@ -116,6 +116,7 @@ module "eks" {
   eks_managed_node_groups = {
     main = {
       name           = "${local.cluster_name}-mng"
+      iam_role_name  = "${local.cluster_name}-mng-role"
       instance_types = var.managed_node_group_instance_types
       min_size       = var.managed_node_group_min_size
       max_size       = var.managed_node_group_max_size
