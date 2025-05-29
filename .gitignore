@@ -8,14 +8,18 @@
 *.tfplan
 *.out
 
-# Terraform state backup files (if local state is ever used)
-# terraform.tfstate.backup
+# Terraform state files (should use remote backend)
+terraform.tfstate
+terraform.tfstate.backup
 
 # Crash log files
 crash.log
 
 # Terraform lock file (optional, but often committed)
 # .terraform.lock.hcl
+
+# Backup files
+*.bak
 
 # OS-specific files
 .DS_Store

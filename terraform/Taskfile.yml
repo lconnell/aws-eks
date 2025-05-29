@@ -1,0 +1,36 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  GREETING: Hello, World!
+
+tasks:
+  default:
+    cmds:
+      - echo "{{.GREETING}}"
+    silent: true
+  scale:
+    vars:
+      DESIRED_SIZE: '{{.desiredSize | default "0"}}'
+    cmds:
+      - |
+        aws eks update-nodegroup-config \
+        --region $(terraform output -raw aws_region_configured) \
+        --cluster-name $(terraform output -raw cluster_name) \
+        --nodegroup-name $(terraform output -raw managed_node_group_id | cut -d ':' -f2) \
+        --scaling-config minSize=0,maxSize=2,desiredSize={{.DESIRED_SIZE}}
+    silent: true
+  kubeconfig:
+    cmds:
+      - |
+        aws eks update-kubeconfig \
+        --region $(terraform output -raw aws_region_configured) \
+        --name $(terraform output -raw cluster_name) \
+        --alias $(terraform output -raw cluster_name)
+    silent: true
+  kubectx:
+    cmds:
+      - kubectl config use-context $(terraform output -raw cluster_name)
+    silent: true
+      
