@@ -45,25 +45,11 @@ This Terraform configuration provisions an AWS Elastic Kubernetes Service (EKS) 
 
     You will need to initialize Terraform for each workspace, providing the S3 key via `-backend-config`.
 
-    *   **For Staging Workspace:**
-        First, select or create the workspace:
+    *   **For Each Workspace:**
+        Create and select the workspace:
         ```bash
-        terraform workspace select staging
-        # Or: terraform workspace new staging
-        ```
-        Then, initialize:
-        ```bash
-        terraform init -backend-config="key=eks-cluster/terraform.tfstate"
-        ```
-
-    *   **For Production Workspace:**
-        First, select or create the workspace:
-        ```bash
-        terraform workspace select production
-        # Or: terraform workspace new production
-        ```
-        Then, initialize:
-        ```bash
+        terraform workspace new {staging | production}
+        terraform workspace select {staging | production}
         terraform init -backend-config="key=eks-cluster/terraform.tfstate"
         ```
 
@@ -72,12 +58,12 @@ This Terraform configuration provisions an AWS Elastic Kubernetes Service (EKS) 
 
 5.  **Plan the deployment:**
     ```bash
-    task plan --env {staging,production}
+    task plan --env {staging | production}
     ```
 
 6.  **Apply the configuration:**
     ```bash
-    task apply --env {staging,production}
+    task apply --env {staging | production}
     ```
 
 7.  **Configure kubectl:**
@@ -106,7 +92,7 @@ task scale --desiredSize=0
 
 To tear down the resources, run:
 ```bash
-task destroy --env {staging,production}
+task destroy --env {staging | production}
 ```
 
 ## Important Notes
