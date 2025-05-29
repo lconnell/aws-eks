@@ -67,33 +67,17 @@ This Terraform configuration provisions an AWS Elastic Kubernetes Service (EKS) 
         terraform init -backend-config="key=eks-cluster/terraform.tfstate"
         ```
 
-    *   **For Default Workspace (if used):**
-        ```bash
-        terraform workspace select default
-        terraform init -backend-config="key=eks-cluster/default/terraform.tfstate"
-        ```
-
 4.  **Review and update the `.tfvars` file for your target environment.**
     For example, open `production.tfvars` or `staging.tfvars` and review the default values. You might need to adjust `aws_region`, `vpc_cidr_block`, and `availability_zones` to suit your needs and the chosen region.
 
 5.  **Plan the deployment:**
-    For staging:
     ```bash
-    task plan --env staging
-    ```
-    For production:
-    ```bash
-    task plan --env production
+    task plan --env {staging,production}
     ```
 
 6.  **Apply the configuration:**
-    For staging:
     ```bash
-    task apply --env staging
-    ```
-    For production:
-    ```bash
-    task apply --env production
+    task apply --env {staging,production}
     ```
 
 7.  **Configure kubectl:**
@@ -121,13 +105,8 @@ task scale --desiredSize=0
 ## Destroying the Cluster
 
 To tear down the resources, run:
-For staging:
 ```bash
-task destroy --env staging
-```
-For production:
-```bash
-task destroy --env production
+task destroy --env {staging,production}
 ```
 
 ## Important Notes
