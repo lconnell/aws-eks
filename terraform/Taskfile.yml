@@ -10,16 +10,36 @@ tasks:
     cmds:
       - echo "{{.GREETING}}"
     silent: true
+  plan:
+    vars:
+      ENV: '{{.env | default "staging"}}'
+    cmds:
+      - terraform plan -var-file="{{.ENV}}.tfvars" -out {{.ENV}}-plan.out
+    silent: true
+  apply:
+    vars:
+      ENV: '{{.env | default "staging"}}'
+    cmds:
+      - terraform apply {{.ENV}}-plan.out
+    silent: true
+  destroy:
+    vars:
+      ENV: '{{.env | default "staging"}}'
+    cmds:
+      - terraform destroy -var-file="{{.ENV}}.tfvars"
+    silent: true
   scale:
     vars:
-      DESIRED_SIZE: '{{.desiredSize | default "0"}}'
+      DESIRED_SIZE: '{{.desiredSize | default "2"}}'
+      MAX_SIZE: '{{.maxSize | default "2"}}'
+      MIN_SIZE: '{{.minSize | default "0"}}'
     cmds:
       - |
         aws eks update-nodegroup-config \
         --region $(terraform output -raw aws_region_configured) \
         --cluster-name $(terraform output -raw cluster_name) \
         --nodegroup-name $(terraform output -raw managed_node_group_id | cut -d ':' -f2) \
-        --scaling-config minSize=0,maxSize=2,desiredSize={{.DESIRED_SIZE}}
+        --scaling-config minSize={{.MIN_SIZE}},maxSize={{.MAX_SIZE}},desiredSize={{.DESIRED_SIZE}}
     silent: true
   kubeconfig:
     cmds:
