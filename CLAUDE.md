@@ -8,7 +8,13 @@ This is an AWS EKS (Elastic Kubernetes Service) infrastructure repository using 
 
 ## Common Development Commands
 
-All commands use Task (taskfile.dev). Run from the `terraform/` directory:
+All commands use Task (taskfile.dev). Run from the project root directory:
+
+### Quick Setup
+```bash
+# Complete setup: create backend, initialize, and create workspaces
+task setup
+```
 
 ### S3 Backend Management
 ```bash
@@ -22,47 +28,47 @@ task backend:init
 task backend:info
 
 # Initialize workspaces
-task workspace:init
+task terraform:workspace:init
 
 # Select workspace
-task workspace:select env=staging
-task workspace:select env=production
+task terraform:workspace:select env=staging
+task terraform:workspace:select env=production
 ```
 
 ### Infrastructure Management
 ```bash
-# Plan infrastructure changes
+# Plan infrastructure changes (or use shorter alias)
+task terraform:plan env=staging
 task plan env=staging
-task plan env=production
 
-# Apply infrastructure changes
+# Apply infrastructure changes (or use shorter alias)
+task terraform:apply env=staging
 task apply env=staging
-task apply env=production
 
-# Destroy infrastructure
+# Destroy infrastructure (or use shorter alias)
+task terraform:destroy env=staging
 task destroy env=staging
-task destroy env=production
 
 # Scale node group
-task scale desiredSize=3
+task eks:scale desiredSize=3
 
 # Configure kubectl access
-task kubeconfig
+task eks:kubeconfig
 
 # Switch kubectl context
-task kubectx
+task eks:kubectx
 ```
 
 ### Terraform Validation and Formatting
 ```bash
 # Validate Terraform configuration
-task validate
+task terraform:validate
 
 # Format Terraform files
-task format
+task terraform:format
 
 # Check if files are properly formatted
-task format:check
+task terraform:format:check
 ```
 
 ## Architecture and Key Concepts
@@ -86,7 +92,7 @@ task format:check
 - `terraform/{staging,production}.tfvars`: Environment-specific values
 - `terraform/access-entries-example.tfvars`: Example configuration for additional IAM access entries
 - `terraform/standalone-access-entry-example.tf`: Reference for direct aws_eks_access_entry resource usage
-- `terraform/Taskfile.yml`: Task automation definitions with workspace-aware commands
+- `Taskfile.yml`: Task automation definitions with workspace-aware commands (at project root)
 - `terraform/backend.tf`: S3 backend configuration for state storage
 - `terraform-backend/s3-backend.tf`: Separate Terraform configuration for creating the S3 state bucket
 
@@ -100,11 +106,14 @@ task format:check
 - Available AWS EKS policies: AmazonEKSClusterAdminPolicy, AmazonEKSEditPolicy, AmazonEKSViewPolicy
 
 ### Before First Use
-1. Create S3 bucket for Terraform state: `task backend:create`
-2. Initialize backend: `task backend:init`
-3. Initialize workspaces: `task workspace:init`
-4. Ensure AWS credentials are configured
-5. Set the `cluster_admin_iam_user` variable to your IAM user for admin access
+1. Ensure AWS credentials are configured
+2. Set the `eks_admin_user_arn` variable to your IAM user for admin access
+3. Run quick setup: `task setup` (creates backend, initializes, and creates workspaces)
+   
+   Or run individual steps:
+   - Create S3 bucket for Terraform state: `task backend:create`
+   - Initialize backend: `task backend:init`
+   - Initialize workspaces: `task terraform:workspace:init`
 
 ### S3 Backend Features
 - **Versioning**: Enabled for state file history

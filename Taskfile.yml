@@ -3,39 +3,50 @@
 version: '3'
 
 vars:
-  GREETING: Hello, World!
+  GREETING: Hello, AWS EKS Project!
 
 tasks:
   default:
+    desc: "Show available tasks"
     cmds:
-      - echo "{{.GREETING}}"
+      - task --list
     silent: true
-  plan:
+
+  # Terraform Tasks
+  terraform:plan:
     desc: "Generate Terraform execution plan for the selected environment"
+    dir: terraform
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps: [workspace:select]
+    deps: [terraform:workspace:select]
     cmds:
       - terraform plan -var-file="{{.ENV}}.tfvars" -out {{.ENV}}.tfplan
     silent: true
-  apply:
+
+  terraform:apply:
     desc: "Apply Terraform changes from the execution plan"
+    dir: terraform
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps: [workspace:select]
+    deps: [terraform:workspace:select]
     cmds:
       - terraform apply {{.ENV}}.tfplan
     silent: true
-  destroy:
+
+  terraform:destroy:
     desc: "Destroy Terraform-managed infrastructure"
+    dir: terraform
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps: [workspace:select]
+    deps: [terraform:workspace:select]
     cmds:
       - terraform destroy -var-file="{{.ENV}}.tfvars"
     silent: true
-  scale:
+
+  # EKS Management Tasks
+  eks:scale:
     desc: "Scale EKS node group to desired size"
+    dir: terraform
     vars:
       DESIRED_SIZE: '{{.desiredSize | default "2"}}'
       MAX_SIZE: '{{.maxSize | default "2"}}'
@@ -48,8 +59,10 @@ tasks:
         --nodegroup-name $(terraform output -raw managed_node_group_id | cut -d ':' -f2) \
         --scaling-config minSize={{.MIN_SIZE}},maxSize={{.MAX_SIZE}},desiredSize={{.DESIRED_SIZE}}
     silent: true
-  kubeconfig:
+
+  eks:kubeconfig:
     desc: "Configure kubectl to access the EKS cluster"
+    dir: terraform
     cmds:
       - |
         aws eks update-kubeconfig \
@@ -57,12 +70,16 @@ tasks:
         --name $(terraform output -raw cluster_name) \
         --alias $(terraform output -raw cluster_name)
     silent: true
-  kubectx:
+
+  eks:kubectx:
     desc: "Switch kubectl context to the EKS cluster"
+    dir: terraform
     cmds:
       - kubectl config use-context $(terraform output -raw cluster_name)
     silent: true
-  whoami:
+
+  # AWS Tasks
+  aws:whoami:
     desc: "Show details of the current AWS identity"
     cmds:
       - aws sts get-caller-identity
@@ -70,8 +87,8 @@ tasks:
 
   # S3 Backend Management Tasks
   backend:create:
-    desc: Create S3 bucket for Terraform state
-    dir: ../terraform-backend
+    desc: "Create S3 bucket for Terraform state"
+    dir: terraform-backend
     cmds:
       - terraform init
       - terraform apply -auto-approve
@@ -79,21 +96,21 @@ tasks:
 
   backend:destroy:
     desc: "Destroy S3 bucket for Terraform state (WARNING: This will delete all state files!)"
-    dir: ../terraform-backend
+    dir: terraform-backend
     cmds:
       - terraform destroy
     silent: true
 
   backend:info:
-    desc: Show S3 backend bucket information
-    dir: ../terraform-backend
+    desc: "Show S3 backend bucket information"
+    dir: terraform-backend
     cmds:
       - terraform output
     silent: true
 
   backend:init:
-    desc: Initialize Terraform with S3 backend after bucket creation
-    dir: ../terraform-backend
+    desc: "Initialize Terraform with S3 backend after bucket creation"
+    dir: terraform-backend
     vars:
       BUCKET_NAME:
         sh: terraform output -raw bucket_name 2>/dev/null || echo ""
@@ -107,8 +124,10 @@ tasks:
         terraform init -reconfigure
     silent: true
 
-  workspace:init:
-    desc: Initialize workspaces for staging and production
+  # Terraform Workspace Tasks
+  terraform:workspace:init:
+    desc: "Initialize workspaces for staging and production"
+    dir: terraform
     preconditions:
       - sh: '[ -f .terraform/terraform.tfstate ]'
         msg: "Terraform not initialized. Run 'task backend:init' first"
@@ -117,8 +136,9 @@ tasks:
       - terraform workspace new production || true
     silent: true
 
-  workspace:select:
-    desc: Select a workspace (staging or production)
+  terraform:workspace:select:
+    desc: "Select a workspace (staging or production)"
+    dir: terraform
     vars:
       ENV: '{{.env | default "staging"}}'
     cmds:
@@ -126,21 +146,54 @@ tasks:
     silent: true
 
   # Terraform Validation and Formatting Tasks
-  validate:
-    desc: Validate Terraform configuration
+  terraform:validate:
+    desc: "Validate Terraform configuration"
+    dir: terraform
     cmds:
       - terraform validate
     silent: true
 
-  format:
-    desc: Format Terraform files
+  terraform:format:
+    desc: "Format Terraform files"
+    dir: terraform
     cmds:
       - terraform fmt
     silent: true
 
-  format:check:
-    desc: Check if Terraform files are properly formatted
+  terraform:format:check:
+    desc: "Check if Terraform files are properly formatted"
+    dir: terraform
     cmds:
       - terraform fmt -check
     silent: true
-      
+
+  # Quick Setup Tasks
+  setup:
+    desc: "Complete setup: create backend, initialize, and create workspaces"
+    cmds:
+      - task: backend:create
+      - task: backend:init
+      - task: terraform:workspace:init
+    silent: true
+
+  # Shortcut aliases for common tasks (keeping backward compatibility)
+  plan:
+    desc: "Alias for terraform:plan"
+    cmds:
+      - task: terraform:plan
+        vars:
+          env: '{{.env}}'
+
+  apply:
+    desc: "Alias for terraform:apply"
+    cmds:
+      - task: terraform:apply
+        vars:
+          env: '{{.env}}'
+
+  destroy:
+    desc: "Alias for terraform:destroy"
+    cmds:
+      - task: terraform:destroy
+        vars:
+          env: '{{.env}}'

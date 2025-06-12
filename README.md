@@ -18,11 +18,11 @@ This Terraform configuration provisions an AWS Elastic Kubernetes Service (EKS) 
 │   ├── outputs.tf        # Outputs from the Terraform configuration
 │   ├── backend.tf        # S3 backend configuration
 │   ├── production.tfvars # Variable values for the production environment
-│   ├── staging.tfvars    # Variable values for the staging environment
-│   └── Taskfile.yml      # Task definitions for common operations
+│   └── staging.tfvars    # Variable values for the staging environment
 ├── terraform-backend/
 │   ├── s3-backend.tf     # S3 bucket configuration for Terraform state
 │   └── README.md         # Backend setup instructions
+├── Taskfile.yml          # Task definitions for common operations
 └── README.md
 ```
 
@@ -34,7 +34,7 @@ This Terraform configuration provisions an AWS Elastic Kubernetes Service (EKS) 
 *   `terraform/backend.tf`: Configures S3 backend for remote state storage with native state locking.
 *   `terraform/production.tfvars`: Example tfvars file for a production environment.
 *   `terraform/staging.tfvars`: Example tfvars file for a staging environment.
-*   `terraform/Taskfile.yml`: Contains [Task](https://taskfile.dev/) definitions for automating common operations like configuring `kubectl`, scaling node groups, and managing the S3 backend.
+*   `Taskfile.yml`: Contains [Task](https://taskfile.dev/) definitions for automating common operations like configuring `kubectl`, scaling node groups, and managing the S3 backend.
 *   `terraform-backend/s3-backend.tf`: Separate Terraform configuration for creating the S3 bucket used for state storage, with versioning and lifecycle policies.
 
 ## Usage
@@ -43,7 +43,6 @@ This Terraform configuration provisions an AWS Elastic Kubernetes Service (EKS) 
 
 1.  **Create the S3 bucket for Terraform state:**
     ```bash
-    cd terraform
     task backend:create
     ```
 
@@ -54,48 +53,41 @@ This Terraform configuration provisions an AWS Elastic Kubernetes Service (EKS) 
 
 3.  **Initialize workspaces:**
     ```bash
-    task workspace:init
+    task terraform:workspace:init
+    ```
+
+    Or use the quick setup command to do all three steps:
+    ```bash
+    task setup
     ```
 
 ### Deploying Infrastructure
 
-1.  **Navigate to the terraform directory:**
-    ```bash
-    cd terraform
-    ```
+1.  **Review and update the `.tfvars` file for your target environment.**
+    For example, open `terraform/production.tfvars` or `terraform/staging.tfvars` and review the default values. You might need to adjust `aws_region`, `vpc_cidr_block`, and `availability_zones` to suit your needs and the chosen region.
 
-2.  **Select your target workspace:**
-    ```bash
-    task workspace:select env=staging
-    # or
-    task workspace:select env=production
-    ```
-
-3.  **Review and update the `.tfvars` file for your target environment.**
-    For example, open `production.tfvars` or `staging.tfvars` and review the default values. You might need to adjust `aws_region`, `vpc_cidr_block`, and `availability_zones` to suit your needs and the chosen region.
-
-4.  **Plan the deployment:**
+2.  **Plan the deployment:**
     ```bash
     task plan env=staging
     # or
     task plan env=production
     ```
 
-5.  **Apply the configuration:**
+3.  **Apply the configuration:**
     ```bash
     task apply env=staging
     # or
     task apply env=production
     ```
 
-6.  **Configure kubectl:**
+4.  **Configure kubectl:**
     Update your default kubeconfig file (usually at `~/.kube/config`).
     ```bash
-    task kubeconfig
+    task eks:kubeconfig
     ```
     Set Kube context to the cluster name.
     ```bash
-    task kubectx
+    task eks:kubectx
     ```
     Verify cluster access.
     ```bash
@@ -107,7 +99,9 @@ This Terraform configuration provisions an AWS Elastic Kubernetes Service (EKS) 
 
 To scale the cluster, run:
 ```bash
-task scale desiredSize=0
+task eks:scale desiredSize=3
+# or with all parameters
+task eks:scale desiredSize=3 minSize=1 maxSize=5
 ```
 
 ## Destroying the Cluster
@@ -124,13 +118,20 @@ task destroy env=production
 To maintain code quality and consistency:
 ```bash
 # Validate Terraform configuration
-task validate
+task terraform:validate
 
 # Format Terraform files
-task format
+task terraform:format
 
 # Check if files are properly formatted (useful for CI/CD)
-task format:check
+task terraform:format:check
+```
+
+## Task Reference
+
+View all available tasks:
+```bash
+task --list
 ```
 
 ## Important Notes
