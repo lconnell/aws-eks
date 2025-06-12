@@ -89,10 +89,13 @@ module "eks" {
 
   # Endpoint access configuration
   cluster_endpoint_public_access  = true
-  cluster_endpoint_private_access = false
+  cluster_endpoint_private_access = true
   cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"]
 
   # aws-auth configmap management
+  # API auth is the new recommended approach.
+  # Instead of mapping a user directly; use an IAM role and attach users to it.
+  # Configure self-managed nodes with Karpenter.
   access_entries = {
     # Use the extracted name for the access entry key for clarity
     "${local.admin_principal_name}_admin" = {

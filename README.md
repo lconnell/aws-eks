@@ -16,9 +16,13 @@ This Terraform configuration provisions an AWS Elastic Kubernetes Service (EKS) 
 │   ├── eks.tf            # Main EKS cluster configuration
 │   ├── variables.tf      # Input variables definition
 │   ├── outputs.tf        # Outputs from the Terraform configuration
+│   ├── backend.tf        # S3 backend configuration
 │   ├── production.tfvars # Variable values for the production environment
 │   ├── staging.tfvars    # Variable values for the staging environment
 │   └── Taskfile.yml      # Task definitions for common operations
+├── terraform-backend/
+│   ├── s3-backend.tf     # S3 bucket configuration for Terraform state
+│   └── README.md         # Backend setup instructions
 └── README.md
 ```
 
@@ -27,46 +31,64 @@ This Terraform configuration provisions an AWS Elastic Kubernetes Service (EKS) 
 *   `terraform/eks.tf`: Contains the main module calls for creating the VPC (using `terraform-aws-modules/vpc/aws`) and the EKS cluster (using `terraform-aws-modules/eks/aws`). It configures the cluster, EKS access entries (for IAM principal to Kubernetes user/group mapping), managed node groups with `node-role.kubernetes.io/worker` labels, and CloudWatch logging.
 *   `terraform/variables.tf`: Defines all the input variables used by the configuration, such as AWS region, cluster version, VPC CIDR block, availability zones, and node group settings.
 *   `terraform/outputs.tf`: Defines outputs like the cluster endpoint, kubeconfig, and node group ARN.
+*   `terraform/backend.tf`: Configures S3 backend for remote state storage with native state locking.
 *   `terraform/production.tfvars`: Example tfvars file for a production environment.
 *   `terraform/staging.tfvars`: Example tfvars file for a staging environment.
-*   `terraform/Taskfile.yml`: Contains [Task](https://taskfile.dev/) definitions for automating common operations like configuring `kubectl` and scaling node groups.
+*   `terraform/Taskfile.yml`: Contains [Task](https://taskfile.dev/) definitions for automating common operations like configuring `kubectl`, scaling node groups, and managing the S3 backend.
+*   `terraform-backend/s3-backend.tf`: Separate Terraform configuration for creating the S3 bucket used for state storage, with versioning and lifecycle policies.
 
 ## Usage
+
+### First-Time Setup
+
+1.  **Create the S3 bucket for Terraform state:**
+    ```bash
+    cd terraform
+    task backend:create
+    ```
+
+2.  **Initialize Terraform with the S3 backend:**
+    ```bash
+    task backend:init
+    ```
+
+3.  **Initialize workspaces:**
+    ```bash
+    task workspace:init
+    ```
+
+### Deploying Infrastructure
 
 1.  **Navigate to the terraform directory:**
     ```bash
     cd terraform
     ```
 
-2.  **Initialize Terraform (with S3 Remote State):**
-    This configuration uses an S3 backend to store the Terraform state remotely, with S3-native locking enabled. The backend is defined in `terraform/backend.tf`.
+2.  **Select your target workspace:**
+    ```bash
+    task workspace:select env=staging
+    # or
+    task workspace:select env=production
+    ```
 
-    **Prerequisite:** Ensure the S3 bucket specified in `backend.tf` (e.g., `lee-aws-devsecops`) exists in the correct AWS region (e.g., `us-east-1`) and has **versioning enabled**.
-
-    You will need to initialize Terraform for each workspace, providing the S3 key via `-backend-config`.
-
-    *   **For Each Workspace:**
-        Create and select the workspace:
-        ```bash
-        terraform workspace new {staging | production}
-        terraform workspace select {staging | production}
-        terraform init -backend-config="key=eks-cluster/terraform.tfstate"
-        ```
-
-4.  **Review and update the `.tfvars` file for your target environment.**
+3.  **Review and update the `.tfvars` file for your target environment.**
     For example, open `production.tfvars` or `staging.tfvars` and review the default values. You might need to adjust `aws_region`, `vpc_cidr_block`, and `availability_zones` to suit your needs and the chosen region.
 
-5.  **Plan the deployment:**
+4.  **Plan the deployment:**
     ```bash
-    task plan --env {staging | production}
+    task plan env=staging
+    # or
+    task plan env=production
     ```
 
-6.  **Apply the configuration:**
+5.  **Apply the configuration:**
     ```bash
-    task apply --env {staging | production}
+    task apply env=staging
+    # or
+    task apply env=production
     ```
 
-7.  **Configure kubectl:**
+6.  **Configure kubectl:**
     Update your default kubeconfig file (usually at `~/.kube/config`).
     ```bash
     task kubeconfig
@@ -85,14 +107,16 @@ This Terraform configuration provisions an AWS Elastic Kubernetes Service (EKS) 
 
 To scale the cluster, run:
 ```bash
-task scale --desiredSize=0
+task scale desiredSize=0
 ```
 
 ## Destroying the Cluster
 
 To tear down the resources, run:
 ```bash
-task destroy --env {staging | production}
+task destroy env=staging
+# or
+task destroy env=production
 ```
 
 ## Important Notes
@@ -103,5 +127,8 @@ task destroy --env {staging | production}
 *   **EKS Access Entries:** Cluster access for IAM principals is managed via EKS Access Entries, which is the successor to the `aws-auth` ConfigMap method. This configuration sets up an access entry for the `var.eks_admin_user_arn`. If you have pre-existing access entries created outside of this Terraform setup that you wish to manage with Terraform, you will need to import them (see troubleshooting note in the Usage section).
 *   **Worker Node Labeling:** Managed node groups are automatically labeled with `node-role.kubernetes.io/worker = "worker"`. This standard label helps `kubectl` display node roles correctly and can be used for scheduling workloads.
 *   **State Management:**
-    *   This project is configured to use an AWS S3 remote backend with S3-native state locking (via `use_lockfile = true` in `backend.tf`). This is the recommended approach for storing your state file securely and managing state locking in production and collaborative environments.
+    *   This project uses an AWS S3 remote backend with S3-native state locking (via `use_lockfile = true` in `backend.tf`)
+    *   The S3 bucket is managed separately in `terraform-backend/` to avoid circular dependencies
+    *   The bucket includes versioning and lifecycle policies (retains 2 newest noncurrent versions, older versions deleted after 90 days)
+    *   Workspaces are used to manage multiple environments (staging/production) with isolated state files
 *   **Cost:** Running an EKS cluster and associated resources will incur costs on your AWS bill. Make sure to destroy resources when they are no longer needed if you are experimenting.

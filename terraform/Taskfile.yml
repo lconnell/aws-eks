@@ -11,24 +11,31 @@ tasks:
       - echo "{{.GREETING}}"
     silent: true
   plan:
+    desc: "Generate Terraform execution plan for the selected environment"
     vars:
       ENV: '{{.env | default "staging"}}'
+    deps: [workspace:select]
     cmds:
       - terraform plan -var-file="{{.ENV}}.tfvars" -out {{.ENV}}-plan.out
     silent: true
   apply:
+    desc: "Apply Terraform changes from the execution plan"
     vars:
       ENV: '{{.env | default "staging"}}'
+    deps: [workspace:select]
     cmds:
       - terraform apply {{.ENV}}-plan.out
     silent: true
   destroy:
+    desc: "Destroy Terraform-managed infrastructure"
     vars:
       ENV: '{{.env | default "staging"}}'
+    deps: [workspace:select]
     cmds:
       - terraform destroy -var-file="{{.ENV}}.tfvars"
     silent: true
   scale:
+    desc: "Scale EKS node group to desired size"
     vars:
       DESIRED_SIZE: '{{.desiredSize | default "2"}}'
       MAX_SIZE: '{{.maxSize | default "2"}}'
@@ -42,6 +49,7 @@ tasks:
         --scaling-config minSize={{.MIN_SIZE}},maxSize={{.MAX_SIZE}},desiredSize={{.DESIRED_SIZE}}
     silent: true
   kubeconfig:
+    desc: "Configure kubectl to access the EKS cluster"
     cmds:
       - |
         aws eks update-kubeconfig \
@@ -50,7 +58,65 @@ tasks:
         --alias $(terraform output -raw cluster_name)
     silent: true
   kubectx:
+    desc: "Switch kubectl context to the EKS cluster"
     cmds:
       - kubectl config use-context $(terraform output -raw cluster_name)
+    silent: true
+
+  # S3 Backend Management Tasks
+  backend:create:
+    desc: Create S3 bucket for Terraform state
+    dir: ../terraform-backend
+    cmds:
+      - terraform init
+      - terraform apply -auto-approve
+    silent: true
+
+  backend:destroy:
+    desc: "Destroy S3 bucket for Terraform state (WARNING: This will delete all state files!)"
+    dir: ../terraform-backend
+    cmds:
+      - terraform destroy
+    silent: true
+
+  backend:info:
+    desc: Show S3 backend bucket information
+    dir: ../terraform-backend
+    cmds:
+      - terraform output
+    silent: true
+
+  backend:init:
+    desc: Initialize Terraform with S3 backend after bucket creation
+    dir: ../terraform-backend
+    vars:
+      BUCKET_NAME:
+        sh: terraform output -raw bucket_name 2>/dev/null || echo ""
+    preconditions:
+      - sh: '[ -n "{{.BUCKET_NAME}}" ]'
+        msg: "S3 bucket not found. Run 'task backend:create' first"
+    cmds:
+      - |
+        cd ../terraform
+        sed -i.bak 's/PLACEHOLDER-eks-terraform-state/{{.BUCKET_NAME}}/g' backend.tf
+        terraform init -reconfigure
+    silent: true
+
+  workspace:init:
+    desc: Initialize workspaces for staging and production
+    preconditions:
+      - sh: '[ -f .terraform/terraform.tfstate ]'
+        msg: "Terraform not initialized. Run 'task backend:init' first"
+    cmds:
+      - terraform workspace new staging || true
+      - terraform workspace new production || true
+    silent: true
+
+  workspace:select:
+    desc: Select a workspace (staging or production)
+    vars:
+      ENV: '{{.env | default "staging"}}'
+    cmds:
+      - terraform workspace select {{.ENV}}
     silent: true
       

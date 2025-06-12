@@ -47,3 +47,4 @@ output "aws_region_configured" {
   description = "The AWS region configured for the EKS cluster."
   value       = var.aws_region
 }
+
