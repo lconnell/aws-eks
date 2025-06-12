@@ -95,6 +95,49 @@ variable "managed_node_group_desired_size" {
   default     = 2
 }
 
+# ALB and Route 53 Variables
+variable "domain_name" {
+  description = "Custom domain name for the services (e.g., 'example.com'). Leave empty to use default AWS ALB domain for testing."
+  type        = string
+  default     = ""
+}
+
+variable "enable_alb" {
+  description = "Enable AWS Load Balancer Controller and ALB ingress"
+  type        = bool
+  default     = true
+}
+
+variable "alb_certificate_arn" {
+  description = "ARN of an existing SSL certificate for the domain. If not provided, a new certificate will be created (only when using custom domain)."
+  type        = string
+  default     = ""
+}
+
+variable "use_default_domain" {
+  description = "Use default AWS ALB domain instead of custom domain. Set to true for testing without a custom domain."
+  type        = bool
+  default     = true
+}
+
+variable "services_config" {
+  description = "Configuration for services with subdomain routing"
+  type = map(object({
+    subdomain = string
+    port      = number
+  }))
+  default = {
+    api = {
+      subdomain = "api"
+      port      = 8000
+    }
+    argocd = {
+      subdomain = "argocd"
+      port      = 8080
+    }
+  }
+}
+
 # Tags
 variable "tags" {
   description = "A map of tags to add to all resources"

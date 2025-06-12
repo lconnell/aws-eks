@@ -1,12 +1,13 @@
-# AWS EKS Cluster with Terraform
+# AWS EKS Cluster with Terraform and ALB
 
-This Terraform configuration provisions an AWS Elastic Kubernetes Service (EKS) cluster, including the necessary VPC, with managed node groups (labeled as workers) and CloudWatch logging enabled. It uses EKS Access Entries for managing cluster access.
+This Terraform configuration provisions an AWS Elastic Kubernetes Service (EKS) cluster with Application Load Balancer (ALB) and Route 53 integration. It includes VPC, managed node groups, CloudWatch logging, and subdomain-based routing for services.
 
 ## Prerequisites
 
 1.  **Terraform CLI:** Install Terraform (>= 1.3.0).
 2.  **AWS CLI:** Install and configure the AWS CLI with credentials that have permissions to create EKS clusters and related resources (VPC, IAM roles, EC2 instances, etc.).
 3.  **kubectl:** Install kubectl to interact with the Kubernetes cluster.
+4.  **Domain name:** Required for ALB and Route 53 setup (optional - can be disabled).
 
 ## Directory Structure
 
@@ -14,6 +15,7 @@ This Terraform configuration provisions an AWS Elastic Kubernetes Service (EKS) 
 .aws-eks/
 ├── terraform/
 │   ├── eks.tf            # Main EKS cluster configuration
+│   ├── alb.tf            # ALB and Route 53 configuration
 │   ├── variables.tf      # Input variables definition
 │   ├── outputs.tf        # Outputs from the Terraform configuration
 │   ├── backend.tf        # S3 backend configuration
@@ -22,19 +24,25 @@ This Terraform configuration provisions an AWS Elastic Kubernetes Service (EKS) 
 ├── terraform-backend/
 │   ├── s3-backend.tf     # S3 bucket configuration for Terraform state
 │   └── README.md         # Backend setup instructions
+├── kubernetes-manifests/
+│   └── sample-services.yaml # Sample services for testing ALB
 ├── Taskfile.yml          # Task definitions for common operations
+├── ALB-SETUP.md           # ALB and Route 53 setup guide
 └── README.md
 ```
 
 ## Configuration Files
 
 *   `terraform/eks.tf`: Contains the main module calls for creating the VPC (using `terraform-aws-modules/vpc/aws`) and the EKS cluster (using `terraform-aws-modules/eks/aws`). It configures the cluster, EKS access entries (for IAM principal to Kubernetes user/group mapping), managed node groups with `node-role.kubernetes.io/worker` labels, and CloudWatch logging.
-*   `terraform/variables.tf`: Defines all the input variables used by the configuration, such as AWS region, cluster version, VPC CIDR block, availability zones, and node group settings.
-*   `terraform/outputs.tf`: Defines outputs like the cluster endpoint, kubeconfig, and node group ARN.
+*   `terraform/alb.tf`: Configures AWS Application Load Balancer, Route 53 hosted zone, SSL certificates, AWS Load Balancer Controller, and Kubernetes Ingress for subdomain-based routing.
+*   `terraform/variables.tf`: Defines all the input variables used by the configuration, including EKS settings, ALB configuration, and Route 53 domain settings.
+*   `terraform/outputs.tf`: Defines outputs like the cluster endpoint, ALB DNS name, Route 53 nameservers, and service URLs.
 *   `terraform/backend.tf`: Configures S3 backend for remote state storage with native state locking.
 *   `terraform/production.tfvars`: Example tfvars file for a production environment.
-*   `terraform/staging.tfvars`: Example tfvars file for a staging environment.
-*   `Taskfile.yml`: Contains [Task](https://taskfile.dev/) definitions for automating common operations like configuring `kubectl`, scaling node groups, and managing the S3 backend.
+*   `terraform/staging.tfvars`: Example tfvars file for a staging environment, including ALB and domain configuration.
+*   `kubernetes-manifests/sample-services.yaml`: Sample API and ArgoCD services for testing ALB subdomain routing.
+*   `Taskfile.yml`: Contains [Task](https://taskfile.dev/) definitions for automating common operations like configuring `kubectl`, scaling node groups, managing the S3 backend, and ALB status.
+*   `ALB-SETUP.md`: Detailed guide for setting up and configuring the Application Load Balancer with Route 53.
 *   `terraform-backend/s3-backend.tf`: Separate Terraform configuration for creating the S3 bucket used for state storage, with versioning and lifecycle policies.
 
 ## Usage
@@ -94,6 +102,46 @@ This Terraform configuration provisions an AWS Elastic Kubernetes Service (EKS) 
     kubectl get nodes
     kubectl get svc
     ```
+
+## ALB and Route 53 Setup
+
+### Configure Domain Name
+
+1. **Update domain in tfvars file:**
+   ```bash
+   # Edit terraform/staging.tfvars
+   domain_name = "yourdomain.com"  # Replace with your actual domain
+   enable_alb  = true
+   ```
+
+2. **Deploy infrastructure with ALB:**
+   ```bash
+   task plan env=staging
+   task apply env=staging
+   ```
+
+3. **Configure DNS nameservers:**
+   ```bash
+   # Get nameservers for your domain registrar
+   task alb:dns:instructions
+   ```
+
+4. **Deploy sample services:**
+   ```bash
+   task k8s:deploy:samples
+   task k8s:status
+   ```
+
+5. **Check ALB status:**
+   ```bash
+   task alb:status
+   ```
+
+**Service URLs after setup:**
+- API service: `https://api.yourdomain.com`
+- ArgoCD service: `https://argocd.yourdomain.com`
+
+For detailed ALB setup instructions, see [ALB-SETUP.md](ALB-SETUP.md).
 
 ## Scaling the Cluster
 

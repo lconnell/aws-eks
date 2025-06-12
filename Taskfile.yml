@@ -176,6 +176,62 @@ tasks:
       - task: terraform:workspace:init
     silent: true
 
+  # Kubernetes Tasks
+  k8s:deploy:samples:
+    desc: "Deploy sample services (API and ArgoCD placeholders)"
+    cmds:
+      - kubectl apply -f kubernetes-manifests/sample-services.yaml
+    silent: true
+
+  k8s:delete:samples:
+    desc: "Delete sample services"
+    cmds:
+      - kubectl delete -f kubernetes-manifests/sample-services.yaml --ignore-not-found=true
+    silent: true
+
+  k8s:status:
+    desc: "Show status of services and ingress"
+    cmds:
+      - echo "=== Services ==="
+      - kubectl get services
+      - echo ""
+      - echo "=== Ingresses ==="
+      - kubectl get ingress
+      - echo ""
+      - echo "=== Pods ==="
+      - kubectl get pods
+    silent: true
+
+  # ALB and Route 53 Tasks
+  alb:status:
+    desc: "Show ALB and Route 53 information"
+    dir: terraform
+    cmds:
+      - |
+        echo "=== ALB Configuration ==="
+        terraform output domain_name
+        terraform output service_urls
+        echo ""
+        echo "=== Route 53 Configuration ==="
+        terraform output hosted_zone_id
+        terraform output hosted_zone_name_servers
+        echo ""
+        echo "=== SSL Certificate ==="
+        terraform output ssl_certificate_arn
+    silent: true
+
+  alb:dns:instructions:
+    desc: "Show DNS configuration instructions"
+    dir: terraform
+    cmds:
+      - |
+        echo "=== DNS Configuration Instructions ==="
+        echo "To complete the setup, update your domain's nameservers to:"
+        terraform output -raw hosted_zone_name_servers
+        echo ""
+        echo "Or if using an existing domain, create NS records pointing to the above nameservers."
+    silent: true
+
   # Shortcut aliases for common tasks (keeping backward compatibility)
   plan:
     desc: "Alias for terraform:plan"
