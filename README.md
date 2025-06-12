@@ -119,6 +119,20 @@ task destroy env=staging
 task destroy env=production
 ```
 
+## Terraform Validation and Formatting
+
+To maintain code quality and consistency:
+```bash
+# Validate Terraform configuration
+task validate
+
+# Format Terraform files
+task format
+
+# Check if files are properly formatted (useful for CI/CD)
+task format:check
+```
+
 ## Important Notes
 
 *   **Kubernetes Version:** The `cluster_version` variable in `variables.tf` is set to a default (e.g., `1.32`). Always check the [official AWS EKS documentation](https://docs.aws.amazon.com/eks/latest/userguide/kubernetes-versions.html) for the latest supported Kubernetes versions and update accordingly.

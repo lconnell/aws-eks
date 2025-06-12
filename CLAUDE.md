@@ -53,6 +53,18 @@ task kubeconfig
 task kubectx
 ```
 
+### Terraform Validation and Formatting
+```bash
+# Validate Terraform configuration
+task validate
+
+# Format Terraform files
+task format
+
+# Check if files are properly formatted
+task format:check
+```
+
 ## Architecture and Key Concepts
 
 ### Infrastructure Organization
@@ -64,13 +76,16 @@ task kubectx
 ### EKS Configuration Structure
 - **VPC Setup**: Custom VPC with public/private subnets across 3 AZs
 - **Node Groups**: Managed node groups with auto-scaling (t3.medium for staging, m5.large for production)
-- **Access Control**: Modern EKS Access Entries for IAM-based authentication (not deprecated aws-auth ConfigMap)
+- **Access Control**: Modern EKS Access Entries API for IAM-based authentication (replaces deprecated aws-auth ConfigMap)
+- **Authentication Mode**: API-only mode for enhanced security and performance
 - **Logging**: All control plane components log to CloudWatch
 
 ### Key Files
-- `terraform/eks.tf`: Main cluster configuration using terraform-aws-modules
-- `terraform/variables.tf`: All configurable parameters with defaults
+- `terraform/eks.tf`: Main cluster configuration using terraform-aws-modules with EKS Access Entries
+- `terraform/variables.tf`: All configurable parameters with defaults and access entry definitions
 - `terraform/{staging,production}.tfvars`: Environment-specific values
+- `terraform/access-entries-example.tfvars`: Example configuration for additional IAM access entries
+- `terraform/standalone-access-entry-example.tf`: Reference for direct aws_eks_access_entry resource usage
 - `terraform/Taskfile.yml`: Task automation definitions with workspace-aware commands
 - `terraform/backend.tf`: S3 backend configuration for state storage
 - `terraform-backend/s3-backend.tf`: Separate Terraform configuration for creating the S3 state bucket
@@ -80,7 +95,9 @@ task kubectx
 - Node labeling: Worker nodes automatically labeled with `node-role.kubernetes.io/worker`
 - NAT Gateways: 1 for staging (cost optimization), 3 for production (high availability)
 - Security: Private endpoint enabled, public endpoint configurable
-- Cluster admin access granted via `cluster_admin_iam_user` variable
+- Authentication: API-only mode with EKS Access Entries (no aws-auth ConfigMap)
+- Access control: Admin access via `eks_admin_user_arn`, additional entries via `additional_access_entries`
+- Available AWS EKS policies: AmazonEKSClusterAdminPolicy, AmazonEKSEditPolicy, AmazonEKSViewPolicy
 
 ### Before First Use
 1. Create S3 bucket for Terraform state: `task backend:create`

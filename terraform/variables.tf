@@ -24,9 +24,26 @@ variable "cluster_version" {
 }
 
 variable "eks_admin_user_arn" {
-  description = "IAM ARN of the user to be granted EKS cluster admin access (system:masters)."
+  description = "IAM ARN of the user to be granted EKS cluster admin access via access entries."
   type        = string
   default     = "" # Should be overridden in .tfvars
+}
+
+variable "additional_access_entries" {
+  description = "Map of additional EKS access entries for IAM principals"
+  type = map(object({
+    principal_arn = string
+    user_name     = optional(string)
+    type          = optional(string, "STANDARD")
+    policy_associations = optional(map(object({
+      policy_arn = string
+      access_scope = object({
+        type       = string
+        namespaces = optional(list(string))
+      })
+    })), {})
+  }))
+  default = {}
 }
 
 variable "vpc_name" {

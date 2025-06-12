@@ -62,6 +62,11 @@ tasks:
     cmds:
       - kubectl config use-context $(terraform output -raw cluster_name)
     silent: true
+  whoami:
+    desc: "Show details of the current AWS identity"
+    cmds:
+      - aws sts get-caller-identity
+    silent: true
 
   # S3 Backend Management Tasks
   backend:create:
@@ -118,5 +123,24 @@ tasks:
       ENV: '{{.env | default "staging"}}'
     cmds:
       - terraform workspace select {{.ENV}}
+    silent: true
+
+  # Terraform Validation and Formatting Tasks
+  validate:
+    desc: Validate Terraform configuration
+    cmds:
+      - terraform validate
+    silent: true
+
+  format:
+    desc: Format Terraform files
+    cmds:
+      - terraform fmt
+    silent: true
+
+  format:check:
+    desc: Check if Terraform files are properly formatted
+    cmds:
+      - terraform fmt -check
     silent: true
       

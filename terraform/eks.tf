@@ -32,11 +32,11 @@ module "vpc" {
   cidr = var.vpc_cidr_block
 
   azs             = var.availability_zones
-  private_subnets = [for k, v in var.availability_zones : cidrsubnet(var.vpc_cidr_block, 8, k)] # Example: creates /24 subnets
+  private_subnets = [for k, v in var.availability_zones : cidrsubnet(var.vpc_cidr_block, 8, k)]                                  # Example: creates /24 subnets
   public_subnets  = [for k, v in var.availability_zones : cidrsubnet(var.vpc_cidr_block, 8, k + length(var.availability_zones))] # Example: creates /24 subnets
 
-  enable_nat_gateway = var.num_nat_gateways > 0
-  single_nat_gateway = var.num_nat_gateways == 1
+  enable_nat_gateway     = var.num_nat_gateways > 0
+  single_nat_gateway     = var.num_nat_gateways == 1
   one_nat_gateway_per_az = var.num_nat_gateways > 1 && var.num_nat_gateways == length(var.availability_zones)
   # If num_nat_gateways is > 1 but not equal to length(var.availability_zones), the module will create `num_nat_gateways` across the AZs.
 
@@ -83,34 +83,40 @@ module "eks" {
   cluster_name    = local.cluster_name
   cluster_version = var.cluster_version
 
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets # EKS worker nodes typically go into private subnets
+  vpc_id                   = module.vpc.vpc_id
+  subnet_ids               = module.vpc.private_subnets # EKS worker nodes typically go into private subnets
   control_plane_subnet_ids = module.vpc.private_subnets # For EKS >= 1.20, control plane can be in private subnets
 
   # Endpoint access configuration
-  cluster_endpoint_public_access  = true
-  cluster_endpoint_private_access = true
+  cluster_endpoint_public_access       = true
+  cluster_endpoint_private_access      = true
   cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"]
 
-  # aws-auth configmap management
-  # API auth is the new recommended approach.
-  # Instead of mapping a user directly; use an IAM role and attach users to it.
-  # Configure self-managed nodes with Karpenter.
-  access_entries = {
-    # Use the extracted name for the access entry key for clarity
-    "${local.admin_principal_name}_admin" = {
-      principal_arn     = var.eks_admin_user_arn
-      user_name         = local.admin_principal_name
-      policy_associations = {
-        cluster_admin = {
-          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-          access_scope = {
-            type = "cluster"
+  # Configure authentication mode to use API-based access entries
+  authentication_mode = "API"
+
+  # Modern EKS API-based access management (replaces aws-auth ConfigMap)
+  # Using EKS Access Entries for fine-grained RBAC control
+  access_entries = merge(
+    # Admin user access entry
+    var.eks_admin_user_arn != "" ? {
+      "${local.admin_principal_name}_admin" = {
+        principal_arn = var.eks_admin_user_arn
+        user_name     = local.admin_principal_name
+        type          = "STANDARD"
+        policy_associations = {
+          cluster_admin = {
+            policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+            access_scope = {
+              type = "cluster"
+            }
           }
         }
       }
-    }
-  }
+    } : {},
+    # Additional access entries from variables
+    var.additional_access_entries
+  )
 
   # Enable CloudWatch Container Logs
   cluster_enabled_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
@@ -126,7 +132,7 @@ module "eks" {
       labels = {
         "node-role.kubernetes.io/worker" = "worker"
       }
-      desired_size   = var.managed_node_group_desired_size
+      desired_size = var.managed_node_group_desired_size
 
       # Ensure nodes are launched in the specified subnets
       subnet_ids = module.vpc.private_subnets # Place worker nodes in private subnets
@@ -134,7 +140,7 @@ module "eks" {
       tags = merge(
         var.tags,
         {
-          Name = "${local.cluster_name}-mng"
+          Name                                              = "${local.cluster_name}-mng"
           "eks_cluster_name"                                = local.cluster_name
           "k8s.io/cluster-autoscaler/${local.cluster_name}" = "owned"
           "k8s.io/cluster-autoscaler/enabled"               = "true"
@@ -143,22 +149,8 @@ module "eks" {
     }
   }
 
-  # Cluster access (optional, for granting access to other IAM roles/users)
-  # manage_aws_auth_configmap = true
-  # aws_auth_roles = [
-  #   {
-  #     rolearn  = "arn:aws:iam::ACCOUNT_ID:role/YourAdminRole"
-  #     username = "admin-role"
-  #     groups   = ["system:masters"]
-  #   },
-  # ]
-  # aws_auth_users = [
-  #   {
-  #     userarn  = "arn:aws:iam::ACCOUNT_ID:user/YourUser"
-  #     username = "your-user"
-  #     groups   = ["system:masters"]
-  #   },
-  # ]
+  # Note: aws-auth ConfigMap is deprecated in favor of EKS Access Entries
+  # All cluster access is now managed via the access_entries block above
 
   tags = var.tags
 }
