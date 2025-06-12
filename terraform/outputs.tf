@@ -103,8 +103,8 @@ output "service_urls" {
   description = "URLs for accessing the services"
   value = var.enable_alb ? (
     var.use_default_domain ? {
-      for service_name, config in var.services_config : service_name => 
-        "http://${config.subdomain}.${try(data.kubernetes_ingress_v1.default_ingress_status[0].status[0].load_balancer[0].ingress[0].hostname, "<pending>")}"
+      for service_name, config in var.services_config : service_name =>
+      "http://${config.subdomain}.${try(data.kubernetes_ingress_v1.default_ingress_status[0].status[0].load_balancer[0].ingress[0].hostname, "<pending>")}"
       } : (
       local.use_custom_domain ? {
         for service_name, config in var.services_config : service_name => "https://${config.subdomain}.${var.domain_name}"

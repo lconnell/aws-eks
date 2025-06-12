@@ -93,13 +93,15 @@ Access services using subdomain routing:
 - API service: `https://api.yourdomain.com`
 - ArgoCD service: `https://argocd.yourdomain.com`
 
-### 4. Deploy Sample Services
+### 4. Deploy Your Services
 
+Deploy your Kubernetes services with the following requirements:
+- Service name must match the configuration in `services_config` (e.g., `api`, `argocd`)
+- Service must expose the configured port (e.g., 8000 for api, 8080 for argocd)
+- Services must have a `/health` endpoint for ALB health checks
+
+Check service status:
 ```bash
-# Deploy sample API and ArgoCD services
-task k8s:deploy:samples
-
-# Check status
 task k8s:status
 ```
 
@@ -220,10 +222,11 @@ The ALB setup includes:
 To remove ALB resources:
 
 ```bash
-# Delete sample services first
-task k8s:delete:samples
+# Delete your services first (important!)
+kubectl delete services --all
+kubectl delete deployments --all
 
-# Destroy infrastructure
+# Then destroy infrastructure
 task destroy env=staging
 ```
 

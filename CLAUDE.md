@@ -59,6 +59,18 @@ task eks:kubeconfig
 task eks:kubectx
 ```
 
+### ALB and Route 53 Management
+```bash
+# Check ALB and Route 53 status
+task alb:status
+
+# Get DNS nameserver setup instructions (for custom domains)
+task alb:dns:instructions
+
+# Check Kubernetes service status
+task k8s:status
+```
+
 ### Terraform Validation and Formatting
 ```bash
 # Validate Terraform configuration
@@ -83,27 +95,32 @@ task terraform:format:check
 - **VPC Setup**: Custom VPC with public/private subnets across 3 AZs
 - **Node Groups**: Managed node groups with auto-scaling (t3.medium for staging, m5.large for production)
 - **Access Control**: Modern EKS Access Entries API for IAM-based authentication (replaces deprecated aws-auth ConfigMap)
-- **Authentication Mode**: API-only mode for enhanced security and performance
+- **Authentication Mode**: API_AND_CONFIG_MAP mode for both access entries and node group compatibility
 - **Logging**: All control plane components log to CloudWatch
+- **ALB Integration**: AWS Application Load Balancer with flexible domain configuration (default AWS domain or custom domain with Route 53)
 
 ### Key Files
 - `terraform/eks.tf`: Main cluster configuration using terraform-aws-modules with EKS Access Entries
+- `terraform/alb.tf`: Complete ALB, Route 53, and SSL certificate configuration with flexible domain support
 - `terraform/variables.tf`: All configurable parameters with defaults and access entry definitions
-- `terraform/{staging,production}.tfvars`: Environment-specific values
+- `terraform/{staging,production}.tfvars`: Environment-specific values including ALB configuration
 - `terraform/access-entries-example.tfvars`: Example configuration for additional IAM access entries
 - `terraform/standalone-access-entry-example.tf`: Reference for direct aws_eks_access_entry resource usage
 - `Taskfile.yml`: Task automation definitions with workspace-aware commands (at project root)
 - `terraform/backend.tf`: S3 backend configuration for state storage
 - `terraform-backend/s3-backend.tf`: Separate Terraform configuration for creating the S3 state bucket
+- `ALB-SETUP.md`: Detailed guide for ALB configuration and subdomain routing setup
 
 ### Important Implementation Details
-- Cluster version: 1.32 (configurable via `cluster_version` variable)
+- Cluster version: 1.33 (configurable via `cluster_version` variable)
 - Node labeling: Worker nodes automatically labeled with `node-role.kubernetes.io/worker`
 - NAT Gateways: 1 for staging (cost optimization), 3 for production (high availability)
 - Security: Private endpoint enabled, public endpoint configurable
-- Authentication: API-only mode with EKS Access Entries (no aws-auth ConfigMap)
+- Authentication: API_AND_CONFIG_MAP mode with EKS Access Entries (supports both modern access entries and aws-auth ConfigMap for node groups)
 - Access control: Admin access via `eks_admin_user_arn`, additional entries via `additional_access_entries`
 - Available AWS EKS policies: AmazonEKSClusterAdminPolicy, AmazonEKSEditPolicy, AmazonEKSViewPolicy
+- ALB Configuration: Two modes available - default AWS domain (subdomain routing) or custom domain with SSL and Route 53
+- ALB Routing: Subdomain-based routing for both modes (api.domain.com, argocd.domain.com)
 
 ### Before First Use
 1. Ensure AWS credentials are configured

@@ -177,17 +177,6 @@ tasks:
     silent: true
 
   # Kubernetes Tasks
-  k8s:deploy:samples:
-    desc: "Deploy sample services (API and ArgoCD placeholders)"
-    cmds:
-      - kubectl apply -f kubernetes-manifests/sample-services.yaml
-    silent: true
-
-  k8s:delete:samples:
-    desc: "Delete sample services"
-    cmds:
-      - kubectl delete -f kubernetes-manifests/sample-services.yaml --ignore-not-found=true
-    silent: true
 
   k8s:status:
     desc: "Show status of services and ingress"
