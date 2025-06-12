@@ -16,7 +16,7 @@ tasks:
       ENV: '{{.env | default "staging"}}'
     deps: [workspace:select]
     cmds:
-      - terraform plan -var-file="{{.ENV}}.tfvars" -out {{.ENV}}-plan.out
+      - terraform plan -var-file="{{.ENV}}.tfvars" -out {{.ENV}}.tfplan
     silent: true
   apply:
     desc: "Apply Terraform changes from the execution plan"
@@ -24,7 +24,7 @@ tasks:
       ENV: '{{.env | default "staging"}}'
     deps: [workspace:select]
     cmds:
-      - terraform apply {{.ENV}}-plan.out
+      - terraform apply {{.ENV}}.tfplan
     silent: true
   destroy:
     desc: "Destroy Terraform-managed infrastructure"
@@ -103,7 +103,7 @@ tasks:
     cmds:
       - |
         cd ../terraform
-        sed -i.bak 's/PLACEHOLDER-eks-terraform-state/{{.BUCKET_NAME}}/g' backend.tf
+        sed -i.bak 's/bucket[[:space:]]*=[[:space:]]*"[^"]*"/bucket = "{{.BUCKET_NAME}}"/g' backend.tf
         terraform init -reconfigure
     silent: true
 

@@ -92,8 +92,10 @@ module "eks" {
   cluster_endpoint_private_access      = true
   cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"]
 
-  # Configure authentication mode to use API-based access entries
-  authentication_mode = "API"
+  # Use hybrid authentication mode for best of both worlds:
+  # - API mode for modern EKS Access Entries (users/roles)
+  # - CONFIG_MAP mode for managed node group bootstrap compatibility
+  authentication_mode = "API_AND_CONFIG_MAP"
 
   # Modern EKS API-based access management (replaces aws-auth ConfigMap)
   # Using EKS Access Entries for fine-grained RBAC control
