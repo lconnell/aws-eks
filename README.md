@@ -23,12 +23,11 @@ aws-eks/
 │   ├── .env.example      # Environment variables template
 │   ├── Pulumi.yaml       # Pulumi project configuration
 │   ├── Pulumi.staging.yaml    # Stack-specific configuration for staging
-│   ├── Pulumi.production.yaml # Stack-specific configuration for production
-│   └── README.md         # Pulumi-specific documentation
+│   └── Pulumi.production.yaml # Stack-specific configuration for production
 ├── Taskfile.yml          # Task definitions for common operations
 ├── ALB-SETUP.md          # ALB and Route 53 setup guide (to be updated for Pulumi)
 ├── CLAUDE.md             # Claude AI assistant guidance
-└── README.md             # This file
+└── README.md             # This file - complete documentation and setup guide
 ```
 
 ## Configuration Files
@@ -39,10 +38,41 @@ aws-eks/
 *   `pulumi/Pulumi.yaml`: Pulumi project configuration defining the project name, runtime, and description.
 *   `pulumi/Pulumi.staging.yaml`: Stack-specific configuration for staging environment.
 *   `pulumi/Pulumi.production.yaml`: Stack-specific configuration for production environment.
-*   `pulumi/README.md`: Detailed Pulumi-specific documentation with deployment instructions.
 *   `Taskfile.yml`: Contains [Task](https://taskfile.dev/) definitions for automating common operations like configuring `kubectl`, scaling node groups, and managing Pulumi stacks.
 *   `ALB-SETUP.md`: Detailed guide for setting up and configuring the Application Load Balancer with Route 53 (to be updated for Pulumi).
 *   `CLAUDE.md`: Guidance for Claude AI assistant when working with this repository.
+
+## Environment Configuration
+
+All configuration is managed through the `pulumi/.env` file:
+
+### AWS Configuration
+- `EKS_ADMIN_USER_ARN`: IAM user ARN for cluster admin access (e.g., `arn:aws:iam::711921764356:user/devsecops`)
+- AWS region is configured via Pulumi config: `pulumi config set aws:region us-east-1`
+
+### Cluster Configuration
+- `CLUSTER_VERSION`: Kubernetes version (default: 1.32)
+- `NODE_DISK_SIZE`: EBS volume size for worker nodes (default: 100GB)
+- `NODE_AMI_TYPE`: Node group AMI type (AL2_x86_64, AL2023_x86_64_STANDARD, BOTTLEROCKET_x86_64, etc.)
+- `VPC_CIDR`: VPC CIDR block (default: 10.0.0.0/16)
+
+### Feature Toggles
+- `ENABLE_VPC_ENDPOINTS`: Enable/disable VPC endpoints for cost optimization
+- `ENABLE_CLUSTER_LOGGING`: Enable/disable CloudWatch logging
+- `ENABLE_PUBLIC_ENDPOINT`: Enable/disable public API endpoint
+- `ENABLE_PRIVATE_ENDPOINT`: Enable/disable private API endpoint
+
+### Default Environment Configurations
+
+#### Staging Environment (Default)
+- **Instance Type:** t3.medium
+- **Node Group:** 1-3 nodes (2 desired)
+- **NAT Gateways:** 1 (cost optimization)
+
+#### Production Environment
+- **Instance Type:** m5.large  
+- **Node Group:** 2-10 nodes (3 desired)
+- **NAT Gateways:** 3 (high availability)
 
 ## Usage
 
@@ -191,7 +221,27 @@ task destroy env=staging
 task destroy env=production
 ```
 
-## Code Quality and Maintenance
+## Code Quality Features
+
+This implementation follows software engineering best practices:
+
+### DRY (Don't Repeat Yourself) Principles
+- **Helper Functions**: Reusable functions for IAM role creation and policy attachment
+- **Centralized Configuration**: All settings managed through `config_vars` dictionary
+- **Environment Abstraction**: Single codebase handles multiple environments
+
+### Easy Maintenance
+- **Modular Design**: Separated concerns with dedicated functions
+- **Clear Structure**: Logical grouping of related resources
+- **Consistent Naming**: Standardized resource naming patterns
+- **Type Hints**: Python type annotations for better code clarity
+
+### Configuration Management
+- **Environment Variables**: All settings configurable via `.env` file
+- **Validation**: Input validation and sensible defaults
+- **Documentation**: Comprehensive inline comments and README
+
+## Useful Commands
 
 The Pulumi code follows best practices:
 ```bash
@@ -203,6 +253,9 @@ task status env=staging
 
 # View stack information
 task info env=staging
+
+# Validate configuration
+task validate env=staging
 ```
 
 ## Task Reference
