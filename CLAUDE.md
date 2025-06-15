@@ -124,10 +124,10 @@ task pulumi:cmd env=staging -- stack export
 ### Before First Use
 1. Ensure AWS credentials are configured
 2. Copy `pulumi/.env.example` to `pulumi/.env` and update `EKS_ADMIN_USER_ARN`
-3. Run quick setup: `task setup` (installs dependencies and initializes stacks)
+3. Run quick setup: `task setup` (installs dependencies using uv and initializes stacks)
    
    Or run individual steps:
-   - Install dependencies: `cd pulumi && pip install -r requirements.txt`
+   - Install dependencies: `cd pulumi && uv pip install -r requirements.txt`
    - Initialize stacks: `task pulumi:init env=staging`
    - Configure kubectl: `task eks:kubeconfig env=staging`
 

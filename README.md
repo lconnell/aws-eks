@@ -8,10 +8,13 @@ This Pulumi application provisions an AWS Elastic Kubernetes Service (EKS) clust
     - **macOS (Homebrew):** `brew install pulumi`
     - **Linux/Windows:** `curl -fsSL https://get.pulumi.com | sh`
 2.  **Python 3.8+:** Required for the Pulumi Python runtime
-3.  **AWS CLI:** Install and configure the AWS CLI with credentials that have permissions to create EKS clusters and related resources (VPC, IAM roles, EC2 instances, etc.).
-4.  **kubectl:** Install kubectl to interact with the Kubernetes cluster.
-5.  **Task CLI:** Install [Task](https://taskfile.dev/) for running automation commands.
-6.  **Domain name:** Optional for ALB setup - can use default AWS domain for testing or custom domain for production.
+3.  **uv:** Fast Python package manager:
+    - **macOS (Homebrew):** `brew install uv`
+    - **Linux/Windows:** `curl -LsSf https://astral.sh/uv/install.sh | sh`
+4.  **AWS CLI:** Install and configure the AWS CLI with credentials that have permissions to create EKS clusters and related resources (VPC, IAM roles, EC2 instances, etc.).
+5.  **kubectl:** Install kubectl to interact with the Kubernetes cluster.
+6.  **Task CLI:** Install [Task](https://taskfile.dev/) for running automation commands.
+7.  **Domain name:** Optional for ALB setup - can use default AWS domain for testing or custom domain for production.
 
 ## Directory Structure
 
@@ -82,7 +85,7 @@ All configuration is managed through the `pulumi/.env` file:
     ```bash
     task setup
     ```
-    This will install all required Python packages and create a virtual environment.
+    This will install all required Python packages using `uv` for fast dependency resolution.
 
 2.  **Configure environment variables:**
     ```bash
@@ -241,6 +244,11 @@ This implementation follows software engineering best practices:
 - **Validation**: Input validation and sensible defaults
 - **Documentation**: Comprehensive inline comments and README
 
+### Modern Tooling
+- **uv Package Manager**: Lightning-fast Python package installation and dependency resolution
+- **Dependency Locking**: Reproducible builds with `requirements.lock` file
+- **Virtual Environment**: Automatic virtual environment management
+
 ## Useful Commands
 
 The Pulumi code follows best practices:
@@ -256,6 +264,26 @@ task info env=staging
 
 # Validate configuration
 task validate env=staging
+
+# Update dependencies and create lock file
+task pulumi:sync
+```
+
+### Dependency Management with uv
+
+This project uses [uv](https://github.com/astral-sh/uv) for fast and reliable Python package management:
+
+```bash
+# Install dependencies (done automatically by task setup)
+task pulumi:deps
+
+# Update and lock dependencies
+task pulumi:sync
+
+# Manual uv commands (if needed)
+cd pulumi
+uv pip install package-name
+uv pip compile requirements.txt -o requirements.lock
 ```
 
 ## Task Reference

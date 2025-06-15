@@ -17,6 +17,7 @@ tasks:
     desc: "Complete setup: install dependencies and initialize stacks"
     cmds:
       - task: pulumi:deps
+      - task: pulumi:sync
       - task: pulumi:init
         vars:
           env: staging
@@ -27,11 +28,19 @@ tasks:
 
   # Pulumi Dependencies
   pulumi:deps:
-    desc: "Install Python dependencies for Pulumi"
+    desc: "Install Python dependencies for Pulumi using uv"
     dir: pulumi
     cmds:
-      - python3 -m venv .venv || true
-      - source .venv/bin/activate && pip install -r requirements.txt
+      - uv venv
+      - uv pip install -r requirements.txt
+    silent: true
+
+  pulumi:sync:
+    desc: "Sync dependencies and create lock file using uv"
+    dir: pulumi
+    cmds:
+      - uv pip compile requirements.txt -o requirements.lock
+      - echo "✓ Created requirements.lock with pinned versions"
     silent: true
 
   # Pulumi Stack Management
@@ -286,7 +295,7 @@ tasks:
     deps: [pulumi:select]
     cmds:
       - echo "=== Validating Pulumi Configuration ==="
-      - python3 -m py_compile __main__.py
+      - uv run python -m py_compile __main__.py
       - echo "✓ Python syntax is valid"
       - ENVIRONMENT={{.ENV}} pulumi preview --dry-run
       - echo "✓ Pulumi configuration is valid"
