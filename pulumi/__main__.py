@@ -1,6 +1,5 @@
 """
-EKS Cluster deployment using Pulumi Python
-Replicates the CDK implementation with environment-specific configurations
+EKS Cluster deployment using Pulumi Python with environment-specific configurations
 """
 
 import os
