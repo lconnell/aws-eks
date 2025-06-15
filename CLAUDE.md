@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an AWS EKS (Elastic Kubernetes Service) infrastructure repository using Terraform as the primary IaC tool, with an alternative CDK implementation. The project provides multi-environment EKS cluster deployments with production-ready configurations.
+This is an AWS EKS (Elastic Kubernetes Service) infrastructure repository using Pulumi with Python as the primary IaC tool. The project provides multi-environment EKS cluster deployments with production-ready configurations following software engineering best practices with DRY principles, helper functions, and centralized configuration management.
 
 ## Common Development Commands
 
@@ -12,128 +12,128 @@ All commands use Task (taskfile.dev). Run from the project root directory:
 
 ### Quick Setup
 ```bash
-# Complete setup: create backend, initialize, and create workspaces
+# Complete setup: install dependencies and initialize stacks
 task setup
 ```
 
-### S3 Backend Management
+### Pulumi Stack Management
 ```bash
-# Create S3 bucket for Terraform state
-task backend:create
+# Initialize a new stack
+task pulumi:init env=staging
+task pulumi:init env=production
 
-# Initialize Terraform with S3 backend
-task backend:init
+# Select a stack
+task pulumi:select env=staging
+task pulumi:select env=production
 
-# Show S3 bucket information
-task backend:info
-
-# Initialize workspaces
-task terraform:workspace:init
-
-# Select workspace
-task terraform:workspace:select env=staging
-task terraform:workspace:select env=production
+# View stack information
+task info env=staging
+task status env=staging
 ```
 
 ### Infrastructure Management
 ```bash
-# Plan infrastructure changes (or use shorter alias)
-task terraform:plan env=staging
-task plan env=staging
+# Preview infrastructure changes
+task preview env=staging
 
-# Apply infrastructure changes (or use shorter alias)
-task terraform:apply env=staging
-task apply env=staging
+# Deploy infrastructure changes
+task deploy env=staging
 
-# Destroy infrastructure (or use shorter alias)
-task terraform:destroy env=staging
+# Destroy infrastructure
 task destroy env=staging
 
+# View stack outputs
+task outputs env=staging
+
 # Scale node group
-task eks:scale desiredSize=3
+task eks:scale env=staging desiredSize=3
 
 # Configure kubectl access
-task eks:kubeconfig
-
-# Switch kubectl context
-task eks:kubectx
+task eks:kubeconfig env=staging
 ```
 
 ### ALB and Route 53 Management
 ```bash
-# Check ALB and Route 53 status
-task alb:status
+# Check ALB and Route 53 status (coming soon)
+task alb:status env=staging
 
-# Get DNS nameserver setup instructions (for custom domains)
-task alb:dns:instructions
+# Get DNS nameserver setup instructions (coming soon)
+task alb:dns:instructions env=staging
 
 # Check Kubernetes service status
 task k8s:status
 ```
 
-### Terraform Validation and Formatting
+### Development and Debugging
 ```bash
-# Validate Terraform configuration
-task terraform:validate
+# View detailed stack configuration
+task config env=staging
 
-# Format Terraform files
-task terraform:format
+# Refresh stack state
+task refresh env=staging
 
-# Check if files are properly formatted
-task terraform:format:check
+# Run Pulumi commands directly
+task pulumi:cmd env=staging -- stack output cluster_name
+task pulumi:cmd env=staging -- stack export
 ```
 
 ## Architecture and Key Concepts
 
 ### Infrastructure Organization
-- **Multi-environment**: Uses Terraform workspaces with separate tfvars files (staging.tfvars, production.tfvars)
-- **Remote State**: S3 backend with native state locking - managed through dedicated Terraform configuration
-- **Module-based**: Uses official terraform-aws-modules for VPC and EKS
-- **Backend Isolation**: S3 bucket for state storage is managed separately in `terraform-backend/` to avoid circular dependencies
+- **Multi-environment**: Uses Pulumi stacks with environment-specific configuration via .env files
+- **Remote State**: Pulumi Service manages state automatically with encryption and collaboration features
+- **Modern Libraries**: Uses `pulumi-aws` and `pulumi-awsx` for simplified AWS resource management
+- **Code Quality**: Follows DRY principles with helper functions, centralized configuration, and type hints
 
 ### EKS Configuration Structure
-- **VPC Setup**: Custom VPC with public/private subnets across 3 AZs
+- **VPC Setup**: Custom VPC with public/private subnets across 3 AZs using `awsx.ec2.Vpc`
 - **Node Groups**: Managed node groups with auto-scaling (t3.medium for staging, m5.large for production)
-- **Access Control**: Modern EKS Access Entries API for IAM-based authentication (replaces deprecated aws-auth ConfigMap)
-- **Authentication Mode**: API_AND_CONFIG_MAP mode for both access entries and node group compatibility
+- **Access Control**: Uses kubectl commands for cluster access after deployment (simplified approach)
+- **Authentication**: Standard AWS EKS authentication via AWS CLI and kubeconfig
 - **Logging**: All control plane components log to CloudWatch
-- **ALB Integration**: AWS Application Load Balancer with flexible domain configuration (default AWS domain or custom domain with Route 53)
+- **ALB Integration**: To be implemented - AWS Application Load Balancer with flexible domain configuration
+- **VPC Endpoints**: Minimal set for cost optimization (S3, EC2, STS) - $0/month for S3, ~$14.40/month for EC2+STS
 
-### Key Files
-- `terraform/eks.tf`: Main cluster configuration using terraform-aws-modules with EKS Access Entries
-- `terraform/alb.tf`: Complete ALB, Route 53, and SSL certificate configuration with flexible domain support
-- `terraform/variables.tf`: All configurable parameters with defaults and access entry definitions
-- `terraform/{staging,production}.tfvars`: Environment-specific values including ALB configuration
-- `terraform/access-entries-example.tfvars`: Example configuration for additional IAM access entries
-- `terraform/standalone-access-entry-example.tf`: Reference for direct aws_eks_access_entry resource usage
-- `Taskfile.yml`: Task automation definitions with workspace-aware commands (at project root)
-- `terraform/backend.tf`: S3 backend configuration for state storage
-- `terraform-backend/s3-backend.tf`: Separate Terraform configuration for creating the S3 state bucket
-- `ALB-SETUP.md`: Detailed guide for ALB configuration and subdomain routing setup
+### Key Files  
+- `pulumi/__main__.py`: Main infrastructure definition with helper functions and centralized configuration
+- `pulumi/requirements.txt`: Python dependencies for Pulumi runtime
+- `pulumi/.env.example`: Environment variables template for configuration
+- `pulumi/Pulumi.yaml`: Project configuration
+- `pulumi/Pulumi.{staging,production}.yaml`: Stack-specific configurations
+- `pulumi/README.md`: Detailed deployment documentation with best practices
+- `Taskfile.yml`: Task automation definitions with Pulumi stack management
+- `ALB-SETUP.md`: Detailed guide for ALB configuration (to be updated for Pulumi)
 
 ### Important Implementation Details
-- Cluster version: 1.33 (configurable via `cluster_version` variable)
-- Node labeling: Worker nodes automatically labeled with `node-role.kubernetes.io/worker`
+- Cluster version: 1.32 (configurable via `CLUSTER_VERSION` environment variable)
+- Node labeling: Worker nodes automatically labeled with environment tags
 - NAT Gateways: 1 for staging (cost optimization), 3 for production (high availability)
 - Security: Private endpoint enabled, public endpoint configurable
-- Authentication: API_AND_CONFIG_MAP mode with EKS Access Entries (supports both modern access entries and aws-auth ConfigMap for node groups)
-- Access control: Admin access via `eks_admin_user_arn`, additional entries via `additional_access_entries`
-- Available AWS EKS policies: AmazonEKSClusterAdminPolicy, AmazonEKSEditPolicy, AmazonEKSViewPolicy
-- ALB Configuration: Two modes available - default AWS domain (subdomain routing) or custom domain with SSL and Route 53
-- ALB Routing: Subdomain-based routing for both modes (api.domain.com, argocd.domain.com)
+- Authentication: Standard EKS authentication using AWS CLI and kubeconfig
+- Access control: Admin access via `EKS_ADMIN_USER_ARN` environment variable
+- VPC Endpoints: S3 (free), EC2, and STS interface endpoints for cost optimization
+- Configuration: All settings managed through `.env` file with sensible defaults
+
+### Code Quality Features
+- **Helper Functions**: Reusable functions for IAM role creation and policy attachment
+- **Centralized Configuration**: All settings managed through `config_vars` dictionary
+- **Environment Abstraction**: Single codebase handles multiple environments
+- **Type Hints**: Python type annotations for better code clarity
+- **DRY Principles**: Eliminates code duplication through smart abstractions
 
 ### Before First Use
 1. Ensure AWS credentials are configured
-2. Set the `eks_admin_user_arn` variable to your IAM user for admin access
-3. Run quick setup: `task setup` (creates backend, initializes, and creates workspaces)
+2. Copy `pulumi/.env.example` to `pulumi/.env` and update `EKS_ADMIN_USER_ARN`
+3. Run quick setup: `task setup` (installs dependencies and initializes stacks)
    
    Or run individual steps:
-   - Create S3 bucket for Terraform state: `task backend:create`
-   - Initialize backend: `task backend:init`
-   - Initialize workspaces: `task terraform:workspace:init`
+   - Install dependencies: `cd pulumi && pip install -r requirements.txt`
+   - Initialize stacks: `task pulumi:init env=staging`
+   - Configure kubectl: `task eks:kubeconfig env=staging`
 
-### S3 Backend Features
-- **Versioning**: Enabled for state file history
-- **Lifecycle Policy**: Retains 2 newest noncurrent versions, older versions deleted after 90 days
-- **Encryption**: Server-side encryption with AES256
-- **Naming**: Default format is `{account-id}-eks-terraform-state`
+### Pulumi State Management
+- **Remote State**: Automatically managed by Pulumi Service with encryption
+- **Collaboration**: Built-in support for team collaboration and access control
+- **Versioning**: Complete history of all deployments and configuration changes
+- **Rollback**: Easy rollback to previous deployments
+- **No Manual Setup**: No need to manage S3 buckets or DynamoDB tables

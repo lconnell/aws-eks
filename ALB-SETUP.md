@@ -1,5 +1,7 @@
 # AWS Application Load Balancer (ALB) Setup
 
+> **Note**: This document is being updated for the new Pulumi architecture. The current instructions are for the previous Terraform implementation and will be updated to support Pulumi-based ALB deployment.
+
 This document explains how to set up and use the AWS Application Load Balancer with flexible domain configuration in your EKS cluster.
 
 ## Overview
@@ -223,6 +225,9 @@ To remove ALB resources:
 
 ```bash
 # Delete your services first (important!)
+# This ensures the AWS Load Balancer Controller can properly clean up ALB targets,
+# listener rules, and target groups before the cluster is destroyed. Skipping this
+# step may leave orphaned AWS resources that continue to incur costs.
 kubectl delete services --all
 kubectl delete deployments --all
 

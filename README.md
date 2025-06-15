@@ -1,99 +1,103 @@
-# AWS EKS Cluster with Terraform and ALB
+# AWS EKS Cluster with Pulumi
 
-This Terraform configuration provisions an AWS Elastic Kubernetes Service (EKS) cluster with Application Load Balancer (ALB) and Route 53 integration. It includes VPC, managed node groups, CloudWatch logging, and subdomain-based routing for services.
+This Pulumi application provisions an AWS Elastic Kubernetes Service (EKS) cluster using Python. The infrastructure follows best practices with DRY principles, helper functions for common operations, and centralized configuration management. It includes VPC, managed node groups, CloudWatch logging, and will support Application Load Balancer (ALB) integration.
 
 ## Prerequisites
 
-1.  **Terraform CLI:** Install Terraform (>= 1.3.0).
-2.  **AWS CLI:** Install and configure the AWS CLI with credentials that have permissions to create EKS clusters and related resources (VPC, IAM roles, EC2 instances, etc.).
-3.  **kubectl:** Install kubectl to interact with the Kubernetes cluster.
-4.  **Task CLI:** Install [Task](https://taskfile.dev/) for running automation commands.
-5.  **Domain name:** Optional for ALB setup - can use default AWS domain for testing or custom domain for production.
+1.  **Pulumi CLI:** Install Pulumi:
+    - **macOS (Homebrew):** `brew install pulumi`
+    - **Linux/Windows:** `curl -fsSL https://get.pulumi.com | sh`
+2.  **Python 3.8+:** Required for the Pulumi Python runtime
+3.  **AWS CLI:** Install and configure the AWS CLI with credentials that have permissions to create EKS clusters and related resources (VPC, IAM roles, EC2 instances, etc.).
+4.  **kubectl:** Install kubectl to interact with the Kubernetes cluster.
+5.  **Task CLI:** Install [Task](https://taskfile.dev/) for running automation commands.
+6.  **Domain name:** Optional for ALB setup - can use default AWS domain for testing or custom domain for production.
 
 ## Directory Structure
 
 ```
-.aws-eks/
-├── terraform/
-│   ├── eks.tf            # Main EKS cluster configuration
-│   ├── alb.tf            # ALB, Route 53, and SSL configuration with flexible domain support
-│   ├── variables.tf      # Input variables definition
-│   ├── outputs.tf        # Outputs from the Terraform configuration
-│   ├── backend.tf        # S3 backend configuration
-│   ├── production.tfvars # Variable values for the production environment
-│   └── staging.tfvars    # Variable values for the staging environment
-├── terraform-backend/
-│   ├── s3-backend.tf     # S3 bucket configuration for Terraform state
-│   └── README.md         # Backend setup instructions
+aws-eks/
+├── pulumi/
+│   ├── __main__.py       # Main Pulumi application with EKS cluster configuration
+│   ├── requirements.txt  # Python dependencies for Pulumi
+│   ├── .env.example      # Environment variables template
+│   ├── Pulumi.yaml       # Pulumi project configuration
+│   ├── Pulumi.staging.yaml    # Stack-specific configuration for staging
+│   ├── Pulumi.production.yaml # Stack-specific configuration for production
+│   └── README.md         # Pulumi-specific documentation
 ├── Taskfile.yml          # Task definitions for common operations
-├── ALB-SETUP.md           # ALB and Route 53 setup guide
-└── README.md
+├── ALB-SETUP.md          # ALB and Route 53 setup guide (to be updated for Pulumi)
+├── CLAUDE.md             # Claude AI assistant guidance
+└── README.md             # This file
 ```
 
 ## Configuration Files
 
-*   `terraform/eks.tf`: Contains the main module calls for creating the VPC (using `terraform-aws-modules/vpc/aws`) and the EKS cluster (using `terraform-aws-modules/eks/aws`). It configures the cluster, EKS access entries (for IAM principal to Kubernetes user/group mapping), managed node groups with `node-role.kubernetes.io/worker` labels, and CloudWatch logging.
-*   `terraform/alb.tf`: Configures AWS Application Load Balancer, Route 53 hosted zone, SSL certificates, and AWS Load Balancer Controller for subdomain-based routing.
-*   `terraform/variables.tf`: Defines all the input variables used by the configuration, including EKS settings, ALB configuration, and Route 53 domain settings.
-*   `terraform/outputs.tf`: Defines outputs like the cluster endpoint, ALB DNS name, Route 53 nameservers, and service URLs.
-*   `terraform/backend.tf`: Configures S3 backend for remote state storage with native state locking.
-*   `terraform/production.tfvars`: Example tfvars file for a production environment.
-*   `terraform/staging.tfvars`: Example tfvars file for a staging environment, including ALB and domain configuration.
-*   `Taskfile.yml`: Contains [Task](https://taskfile.dev/) definitions for automating common operations like configuring `kubectl`, scaling node groups, managing the S3 backend, and ALB status.
-*   `ALB-SETUP.md`: Detailed guide for setting up and configuring the Application Load Balancer with Route 53.
-*   `terraform-backend/s3-backend.tf`: Separate Terraform configuration for creating the S3 bucket used for state storage, with versioning and lifecycle policies.
+*   `pulumi/__main__.py`: Main Pulumi application containing helper functions and infrastructure definition. Creates VPC (using `pulumi-awsx`), EKS cluster, managed node groups, IAM roles, and VPC endpoints. Uses best practices with DRY principles and centralized configuration.
+*   `pulumi/requirements.txt`: Python dependencies including `pulumi`, `pulumi-aws`, `pulumi-awsx`, and `python-dotenv`.
+*   `pulumi/.env.example`: Environment variables template for configuration - copy to `.env` and customize.
+*   `pulumi/Pulumi.yaml`: Pulumi project configuration defining the project name, runtime, and description.
+*   `pulumi/Pulumi.staging.yaml`: Stack-specific configuration for staging environment.
+*   `pulumi/Pulumi.production.yaml`: Stack-specific configuration for production environment.
+*   `pulumi/README.md`: Detailed Pulumi-specific documentation with deployment instructions.
+*   `Taskfile.yml`: Contains [Task](https://taskfile.dev/) definitions for automating common operations like configuring `kubectl`, scaling node groups, and managing Pulumi stacks.
+*   `ALB-SETUP.md`: Detailed guide for setting up and configuring the Application Load Balancer with Route 53 (to be updated for Pulumi).
+*   `CLAUDE.md`: Guidance for Claude AI assistant when working with this repository.
 
 ## Usage
 
 ### First-Time Setup
 
-1.  **Create the S3 bucket for Terraform state:**
-    ```bash
-    task backend:create
-    ```
-
-2.  **Initialize Terraform with the S3 backend:**
-    ```bash
-    task backend:init
-    ```
-
-3.  **Initialize workspaces:**
-    ```bash
-    task terraform:workspace:init
-    ```
-
-    Or use the quick setup command to do all three steps:
+1.  **Install Python dependencies:**
     ```bash
     task setup
+    ```
+    This will install all required Python packages and create a virtual environment.
+
+2.  **Configure environment variables:**
+    ```bash
+    # Copy the example .env file in the pulumi directory
+    cp pulumi/.env.example pulumi/.env
+    
+    # Edit with your specific values
+    vim pulumi/.env
+    ```
+    
+    **Required variables to update:**
+    - `EKS_ADMIN_USER_ARN`: Your IAM user ARN (e.g., `arn:aws:iam::711921764356:user/devsecops`)
+
+3.  **Initialize Pulumi stacks:**
+    ```bash
+    # For staging environment
+    task pulumi:init env=staging
+    
+    # For production environment  
+    task pulumi:init env=production
     ```
 
 ### Deploying Infrastructure
 
-1.  **Review and update the `.tfvars` file for your target environment.**
-    For example, open `terraform/production.tfvars` or `terraform/staging.tfvars` and review the default values. You might need to adjust `aws_region`, `vpc_cidr_block`, and `availability_zones` to suit your needs and the chosen region.
+1.  **Review and update the `.env` file for your target environment.**
+    For example, open `pulumi/.env` and review the default values. You might need to adjust `ENVIRONMENT`, `VPC_CIDR`, and region-specific settings to suit your needs.
 
-2.  **Plan the deployment:**
+2.  **Preview the deployment:**
     ```bash
-    task plan env=staging
+    task preview env=staging
     # or
-    task plan env=production
+    task preview env=production
     ```
 
-3.  **Apply the configuration:**
+3.  **Deploy the infrastructure:**
     ```bash
-    task apply env=staging
+    task deploy env=staging
     # or
-    task apply env=production
+    task deploy env=production
     ```
 
 4.  **Configure kubectl:**
     Update your default kubeconfig file (usually at `~/.kube/config`).
     ```bash
-    task eks:kubeconfig
-    ```
-    Set Kube context to the cluster name.
-    ```bash
-    task eks:kubectx
+    task eks:kubeconfig env=staging
     ```
     Verify cluster access.
     ```bash
@@ -173,9 +177,9 @@ For detailed ALB setup instructions, see [ALB-SETUP.md](ALB-SETUP.md).
 
 To scale the cluster, run:
 ```bash
-task eks:scale desiredSize=3
+task eks:scale env=staging desiredSize=3
 # or with all parameters
-task eks:scale desiredSize=3 minSize=1 maxSize=5
+task eks:scale env=staging desiredSize=3 minSize=1 maxSize=5
 ```
 
 ## Destroying the Cluster
@@ -187,18 +191,18 @@ task destroy env=staging
 task destroy env=production
 ```
 
-## Terraform Validation and Formatting
+## Code Quality and Maintenance
 
-To maintain code quality and consistency:
+The Pulumi code follows best practices:
 ```bash
-# Validate Terraform configuration
-task terraform:validate
+# View stack outputs
+task outputs env=staging
 
-# Format Terraform files
-task terraform:format
+# Check stack status
+task status env=staging
 
-# Check if files are properly formatted (useful for CI/CD)
-task terraform:format:check
+# View stack information
+task info env=staging
 ```
 
 ## Task Reference
