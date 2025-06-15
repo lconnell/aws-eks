@@ -71,7 +71,7 @@ tasks:
       ENV: '{{.env | default "staging"}}'
     deps: [pulumi:select]
     cmds:
-      - ENVIRONMENT={{.ENV}} pulumi preview
+      - pulumi preview
     silent: true
 
   deploy:
@@ -81,7 +81,7 @@ tasks:
       ENV: '{{.env | default "staging"}}'
     deps: [pulumi:select]
     cmds:
-      - ENVIRONMENT={{.ENV}} pulumi up --yes
+      - pulumi up --yes
     silent: true
 
   destroy:
@@ -91,7 +91,7 @@ tasks:
       ENV: '{{.env | default "staging"}}'
     deps: [pulumi:select]
     cmds:
-      - ENVIRONMENT={{.ENV}} pulumi destroy --yes
+      - pulumi destroy --yes
     silent: true
 
   # Stack Information
@@ -146,7 +146,7 @@ tasks:
       ENV: '{{.env | default "staging"}}'
     deps: [pulumi:select]
     cmds:
-      - ENVIRONMENT={{.ENV}} pulumi refresh --yes
+      - pulumi refresh --yes
     silent: true
 
   # EKS Management Tasks
@@ -268,22 +268,53 @@ tasks:
       - pulumi logs --follow
     silent: true
 
-  # Environment Setup
-  env:copy:
-    desc: "Copy .env.example to .env in pulumi directory"
+  # Configuration Management
+  config:set:
+    desc: "Set a configuration value (e.g., task config:set env=staging key=node-disk-size value=200)"
     dir: pulumi
+    vars:
+      ENV: '{{.env | default "staging"}}'
+      KEY: '{{.key}}'
+      VALUE: '{{.value}}'
+    deps: [pulumi:select]
     cmds:
-      - cp .env.example .env
-      - echo "Environment file created at pulumi/.env"
-      - echo "Please edit it with your specific configuration"
+      - pulumi config set {{.KEY}} {{.VALUE}}
+      - echo "✓ Set {{.KEY}} = {{.VALUE}} for {{.ENV}} stack"
     silent: true
 
-  env:show:
-    desc: "Show current environment configuration"
+  config:set-secret:
+    desc: "Set a secret configuration value (e.g., task config:set-secret env=staging key=admin-user-arn value=arn:aws:iam::123:user/admin)"
     dir: pulumi
+    vars:
+      ENV: '{{.env | default "staging"}}'
+      KEY: '{{.key}}'
+      VALUE: '{{.value}}'
+    deps: [pulumi:select]
     cmds:
-      - echo "=== Current .env configuration ==="
-      - cat .env 2>/dev/null || echo "No .env file found. Run 'task env:copy' first."
+      - pulumi config set --secret {{.KEY}} {{.VALUE}}
+      - echo "✓ Set secret {{.KEY}} for {{.ENV}} stack"
+    silent: true
+
+  config:get:
+    desc: "Get a configuration value (e.g., task config:get env=staging key=node-disk-size)"
+    dir: pulumi
+    vars:
+      ENV: '{{.env | default "staging"}}'
+      KEY: '{{.key}}'
+    deps: [pulumi:select]
+    cmds:
+      - pulumi config get {{.KEY}}
+    silent: true
+
+  config:list:
+    desc: "List all configuration values for the current stack"
+    dir: pulumi
+    vars:
+      ENV: '{{.env | default "staging"}}'
+    deps: [pulumi:select]
+    cmds:
+      - echo "=== Configuration for {{.ENV}} stack ==="
+      - pulumi config
     silent: true
 
   # Validation Tasks
@@ -297,7 +328,7 @@ tasks:
       - echo "=== Validating Pulumi Configuration ==="
       - uv run python -m py_compile __main__.py
       - echo "✓ Python syntax is valid"
-      - ENVIRONMENT={{.ENV}} pulumi preview --dry-run
+      - pulumi preview --dry-run
       - echo "✓ Pulumi configuration is valid"
     silent: true
 

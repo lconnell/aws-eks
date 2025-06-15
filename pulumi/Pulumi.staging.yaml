@@ -1,3 +1,20 @@
 config:
   aws:region: us-east-1
-  eks-cluster:environment: staging
+  eks:node-disk-size: 100
+  eks:node-ami-type: AL2_x86_64
+  eks:vpc-max-azs: 3
+  eks:vpc-cidr: 10.0.0.0/16
+  eks:enable-vpc-endpoints: true
+  eks:enable-cluster-logging: true
+  eks:enable-public-endpoint: true
+  eks:enable-private-endpoint: true
+  eks:cluster-name-prefix: eks-cluster
+  eks:project-name: EKS-Pulumi
+  eks:managed-by: Pulumi
+  eks:cost-center: engineering
+  eks:kubernetes-version: 1.32
+  eks:instance-type: t3.medium
+  eks:min-size: 1
+  eks:max-size: 3
+  eks:desired-size: 2
+  eks:nat-gateways: 1

@@ -2,17 +2,9 @@
 EKS Cluster deployment using Pulumi Python with environment-specific configurations
 """
 
-import os
 import pulumi
 import pulumi_aws as aws
 import pulumi_awsx as awsx
-
-# Load environment variables from .env file if available
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
 
 def create_iam_role(name: str, service: str, tags: dict):
     """Create IAM role with assume role policy for specified service"""
@@ -45,51 +37,57 @@ def attach_policies_to_role(role_name: str, policy_arns: list, environment: str)
         attachments.append(attachment)
     return attachments
 
+def create_vpc_endpoint(name: str, vpc_id: str, service_name: str, endpoint_type: str, 
+                       environment: str, tags: dict, subnet_ids=None, security_group_ids=None):
+    """Create VPC endpoint with consistent configuration"""
+    return aws.ec2.VpcEndpoint(
+        f"{name}-endpoint-{environment}",
+        vpc_id=vpc_id,
+        service_name=service_name,
+        vpc_endpoint_type=endpoint_type,
+        subnet_ids=subnet_ids,
+        security_group_ids=security_group_ids,
+        tags=tags
+    )
+
 def create_eks_cluster():
     """Create EKS cluster with environment-specific configuration"""
     
-    # Get environment configuration
-    environment = os.getenv("ENVIRONMENT", "staging")
+    # Initialize Pulumi configuration
+    config = pulumi.Config("eks")
     
-    # Environment-specific configuration
-    config = {
-        "staging": {
-            "instance_type": os.getenv("STAGING_INSTANCE_TYPE", "t3.medium"),
-            "min_size": int(os.getenv("STAGING_MIN_SIZE", "1")),
-            "max_size": int(os.getenv("STAGING_MAX_SIZE", "3")),
-            "desired_size": int(os.getenv("STAGING_DESIRED_SIZE", "2")),
-            "nat_gateways": int(os.getenv("STAGING_NAT_GATEWAYS", "1")),
-        },
-        "production": {
-            "instance_type": os.getenv("PRODUCTION_INSTANCE_TYPE", "m5.large"),
-            "min_size": int(os.getenv("PRODUCTION_MIN_SIZE", "2")),
-            "max_size": int(os.getenv("PRODUCTION_MAX_SIZE", "10")),
-            "desired_size": int(os.getenv("PRODUCTION_DESIRED_SIZE", "3")),
-            "nat_gateways": int(os.getenv("PRODUCTION_NAT_GATEWAYS", "3")),
-        }
+    # Get stack name as environment (staging/production)
+    environment = pulumi.get_stack()
+    
+    # Environment-specific configuration with Pulumi config
+    env_config = {
+        "instance_type": config.get("instance-type"),
+        "min_size": config.get_int("min-size"),
+        "max_size": config.get_int("max-size"),
+        "desired_size": config.get_int("desired-size"),
+        "nat_gateways": config.get_int("nat-gateways"),
+        "kubernetes_version": config.get("kubernetes-version")
     }
     
-    env_config = config.get(environment, config["staging"])
-    
-    # Common configuration
+    # Common configuration using Pulumi config
     config_vars = {
-        "node_disk_size": int(os.getenv("NODE_DISK_SIZE", "100")),
-        "node_ami_type": os.getenv("NODE_AMI_TYPE", "AL2_x86_64"),
-        "vpc_max_azs": int(os.getenv("VPC_MAX_AZS", "3")),
-        "vpc_cidr": os.getenv("VPC_CIDR", "10.0.0.0/16"),
-        "enable_vpc_endpoints": os.getenv("ENABLE_VPC_ENDPOINTS", "true").lower() == "true",
-        "enable_cluster_logging": os.getenv("ENABLE_CLUSTER_LOGGING", "true").lower() == "true",
-        "enable_public_endpoint": os.getenv("ENABLE_PUBLIC_ENDPOINT", "true").lower() == "true",
-        "enable_private_endpoint": os.getenv("ENABLE_PRIVATE_ENDPOINT", "true").lower() == "true",
-        "cluster_name_prefix": os.getenv("CLUSTER_NAME_PREFIX", "eks-cluster"),
+        "node_disk_size": config.get_int("node-disk-size"),
+        "node_ami_type": config.get("node-ami-type"),
+        "vpc_max_azs": config.get_int("vpc-max-azs"),
+        "vpc_cidr": config.get("vpc-cidr"),
+        "enable_vpc_endpoints": config.get_bool("enable-vpc-endpoints"),
+        "enable_cluster_logging": config.get_bool("enable-cluster-logging"),
+        "enable_public_endpoint": config.get_bool("enable-public-endpoint"),
+        "enable_private_endpoint": config.get_bool("enable-private-endpoint"),
+        "cluster_name_prefix": config.get("cluster-name-prefix"),
     }
     
-    # Tag configuration
+    # Tag configuration using Pulumi config
     tags = {
         "Environment": environment,
-        "Project": os.getenv("TAG_PROJECT", "EKS-Pulumi"),
-        "ManagedBy": os.getenv("TAG_MANAGED_BY", "Pulumi"),
-        "CostCenter": os.getenv("TAG_COST_CENTER", "engineering")
+        "Project": config.get("project-name"),
+        "ManagedBy": config.get("managed-by"),
+        "CostCenter": config.get("cost-center")
     }
     
     # Create VPC with environment-specific settings
@@ -117,21 +115,18 @@ def create_eks_cluster():
         policy_arn="arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
     )
     
-    # Attach node policies
+    # Attach node policies using helper function
     node_policies = [
         "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
         "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
         "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
     ]
     
-    node_policy_attachments = []
-    for i, policy_arn in enumerate(node_policies):
-        attachment = aws.iam.RolePolicyAttachment(
-            f"eks-node-policy-{i}-{environment}",
-            role=node_role.name,
-            policy_arn=policy_arn
-        )
-        node_policy_attachments.append(attachment)
+    node_policy_attachments = attach_policies_to_role(
+        node_role.name,
+        node_policies,
+        environment
+    )
     
     # Configure endpoint access
     endpoint_config = {
@@ -154,7 +149,7 @@ def create_eks_cluster():
             endpoint_private_access=endpoint_config["private_access"],
             endpoint_public_access=endpoint_config["public_access"],
         ),
-        version="1.32",
+        version=env_config["kubernetes_version"],
         enabled_cluster_log_types=cluster_logging_types,
         tags=tags,
         opts=pulumi.ResourceOptions(depends_on=[cluster_policy_attachment])
@@ -212,40 +207,27 @@ def create_eks_cluster():
         
         # S3 Gateway Endpoint (free)
         # Note: Gateway endpoints automatically associate with all route tables
-        aws.ec2.VpcEndpoint(
-            f"s3-endpoint-{environment}",
-            vpc_id=vpc.vpc_id,
-            service_name=f"com.amazonaws.{current_region.name}.s3",
-            vpc_endpoint_type="Gateway",
-            tags=tags
+        create_vpc_endpoint(
+            "s3", vpc.vpc_id, 
+            f"com.amazonaws.{current_region.name}.s3",
+            "Gateway", environment, tags
         )
         
-        # EC2 Interface Endpoint
-        aws.ec2.VpcEndpoint(
-            f"ec2-endpoint-{environment}",
-            vpc_id=vpc.vpc_id,
-            service_name=f"com.amazonaws.{current_region.name}.ec2",
-            vpc_endpoint_type="Interface",
-            subnet_ids=vpc.private_subnet_ids,
-            security_group_ids=[endpoint_sg.id],
-            tags=tags
-        )
-        
-        # STS Interface Endpoint
-        aws.ec2.VpcEndpoint(
-            f"sts-endpoint-{environment}",
-            vpc_id=vpc.vpc_id,
-            service_name=f"com.amazonaws.{current_region.name}.sts",
-            vpc_endpoint_type="Interface",
-            subnet_ids=vpc.private_subnet_ids,
-            security_group_ids=[endpoint_sg.id],
-            tags=tags
-        )
+        # Interface endpoints for EC2 and STS
+        for service in ["ec2", "sts"]:
+            create_vpc_endpoint(
+                service, vpc.vpc_id,
+                f"com.amazonaws.{current_region.name}.{service}",
+                "Interface", environment, tags,
+                subnet_ids=vpc.private_subnet_ids,
+                security_group_ids=[endpoint_sg.id]
+            )
     
     # Export important values
     pulumi.export("cluster_name", cluster.name)
     pulumi.export("cluster_endpoint", cluster.endpoint)
     pulumi.export("cluster_arn", cluster.arn)
+    pulumi.export("cluster_version", cluster.version)
     pulumi.export("vpc_id", vpc.vpc_id)
     pulumi.export("node_group_name", node_group.node_group_name)
     pulumi.export("kubectl_command", pulumi.Output.concat(
