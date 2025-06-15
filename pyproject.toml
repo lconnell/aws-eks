@@ -1,0 +1,36 @@
+[project]
+name = "pulumi-aws-eks"
+version = "0.1.0"
+description = "Pulumi project for AWS EKS"
+requires-python = ">=3.12"
+dependencies = [
+    "pulumi>=3.0.0,<4.0.0",
+    "pulumi-aws>=6.0.0,<7.0.0",
+    "pulumi-awsx>=2.0.0,<3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "mypy",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["pulumi"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

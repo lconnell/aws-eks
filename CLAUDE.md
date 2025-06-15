@@ -97,7 +97,7 @@ task pulumi:cmd env=staging -- stack export
 - **ALB Integration**: To be implemented - AWS Application Load Balancer with flexible domain configuration
 - **VPC Endpoints**: Minimal set for cost optimization (S3, EC2, STS) - $0/month for S3, ~$14.40/month for EC2+STS
 
-### Key Files  
+### Key Files
 - `pulumi/__main__.py`: Main infrastructure definition with helper functions and centralized configuration
 - `pulumi/requirements.txt`: Python dependencies for Pulumi runtime
 - `pulumi/.env.example`: Environment variables template for configuration
@@ -128,7 +128,7 @@ task pulumi:cmd env=staging -- stack export
 1. Ensure AWS credentials are configured
 2. Run quick setup: `task setup` (installs dependencies using uv and initializes stacks)
 3. Configure basic settings: `task config:set env=staging key=project-name value="MyProject"`
-   
+
    Or run individual steps:
    - Install dependencies: `task pulumi:deps`
    - Initialize stacks: `task pulumi:init env=staging`

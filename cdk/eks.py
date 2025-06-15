@@ -36,9 +36,9 @@ class EksClusterStack(Stack):
                 "nat_gateways": int(os.getenv("PRODUCTION_NAT_GATEWAYS", "3")),
             }
         }
-        
+
         env_config = config.get(environment, config["staging"])
-        
+
         # Get common configuration from .env
         node_disk_size = int(os.getenv("NODE_DISK_SIZE", "100"))
         node_ami_type = os.getenv("NODE_AMI_TYPE", "AL2_x86_64")
@@ -49,15 +49,15 @@ class EksClusterStack(Stack):
         enable_public_endpoint = os.getenv("ENABLE_PUBLIC_ENDPOINT", "true").lower() == "true"
         enable_private_endpoint = os.getenv("ENABLE_PRIVATE_ENDPOINT", "true").lower() == "true"
         cluster_name_prefix = os.getenv("CLUSTER_NAME_PREFIX", "eks-cluster")
-        
+
         # Tag configuration
         tag_project = os.getenv("TAG_PROJECT", "EKS-CDK")
         tag_managed_by = os.getenv("TAG_MANAGED_BY", "CDK")
         tag_cost_center = os.getenv("TAG_COST_CENTER", "engineering")
-        
+
         # Create VPC with environment-specific settings
         vpc = ec2.Vpc(
-            self, 
+            self,
             f"EksVpc-{environment}",
             vpc_name=f"eks-vpc-{environment}",
             ip_addresses=ec2.IpAddresses.cidr(vpc_cidr),
@@ -137,7 +137,7 @@ class EksClusterStack(Stack):
             "AL2023_ARM_64_STANDARD": eks.NodegroupAmiType.AL2023_ARM_64_STANDARD,
             "BOTTLEROCKET_ARM_64": eks.NodegroupAmiType.BOTTLEROCKET_ARM_64
         }
-        
+
         # Add managed node group
         node_group = cluster.add_nodegroup_capacity(
             f"Nodegroup-{environment}",
@@ -162,11 +162,11 @@ class EksClusterStack(Stack):
             vpc.add_gateway_endpoint("S3Endpoint",
                 service=ec2.GatewayVpcEndpointAwsService.S3
             )
-            
+
             vpc.add_interface_endpoint("Ec2Endpoint",
                 service=ec2.InterfaceVpcEndpointAwsService.EC2
             )
-            
+
             vpc.add_interface_endpoint("StsEndpoint",
                 service=ec2.InterfaceVpcEndpointAwsService.STS
             )
@@ -184,7 +184,7 @@ class EksClusterStack(Stack):
         CfnOutput(self, "VpcId", value=vpc.vpc_id)
         CfnOutput(self, "NodeGroupName", value=node_group.nodegroup_name)
         CfnOutput(
-            self, 
+            self,
             "KubectlCommand",
             value=f"aws eks update-kubeconfig --name {cluster.cluster_name} --region {self.region}"
         )
@@ -202,7 +202,7 @@ region = os.getenv("CDK_DEFAULT_REGION", "us-east-1")
 stack_name_prefix = os.getenv("STACK_NAME_PREFIX", "EksClusterStack")
 
 EksClusterStack(
-    app, 
+    app,
     f"{stack_name_prefix}-{environment}",
     environment=environment,
     env=Environment(account=account, region=region)

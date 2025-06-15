@@ -2,9 +2,11 @@
 EKS Cluster deployment using Pulumi Python with environment-specific configurations
 """
 
-import pulumi
 import pulumi_aws as aws
 import pulumi_awsx as awsx
+
+from pulumi import Config, Output, ResourceOptions, export, get_stack
+
 
 def create_iam_role(name: str, service: str, tags: dict):
     """Create IAM role with assume role policy for specified service"""
@@ -22,23 +24,31 @@ def create_iam_role(name: str, service: str, tags: dict):
                 }}
             ]
         }}""",
-        tags=tags
+        tags=tags,
     )
 
-def attach_policies_to_role(role_name: str, policy_arns: list, environment: str):
+
+def attach_policies_to_role(role: aws.iam.Role, policy_arns: list, prefix: str):
     """Attach multiple policies to an IAM role"""
     attachments = []
     for i, policy_arn in enumerate(policy_arns):
         attachment = aws.iam.RolePolicyAttachment(
-            f"{role_name}-policy-{i}-{environment}",
-            role=role_name,
-            policy_arn=policy_arn
+            f"{prefix}-policy-{i}", role=role.name, policy_arn=policy_arn
         )
         attachments.append(attachment)
     return attachments
 
-def create_vpc_endpoint(name: str, vpc_id: str, service_name: str, endpoint_type: str, 
-                       environment: str, tags: dict, subnet_ids=None, security_group_ids=None):
+
+def create_vpc_endpoint(
+    name: str,
+    vpc_id: str,
+    service_name: str,
+    endpoint_type: str,
+    environment: str,
+    tags: dict,
+    subnet_ids=None,
+    security_group_ids=None,
+):
     """Create VPC endpoint with consistent configuration"""
     return aws.ec2.VpcEndpoint(
         f"{name}-endpoint-{environment}",
@@ -47,18 +57,19 @@ def create_vpc_endpoint(name: str, vpc_id: str, service_name: str, endpoint_type
         vpc_endpoint_type=endpoint_type,
         subnet_ids=subnet_ids,
         security_group_ids=security_group_ids,
-        tags=tags
+        tags=tags,
     )
+
 
 def create_eks_cluster():
     """Create EKS cluster with environment-specific configuration"""
-    
+
     # Initialize Pulumi configuration
-    config = pulumi.Config("eks")
-    
+    config = Config("eks")
+
     # Get stack name as environment (staging/production)
-    environment = pulumi.get_stack()
-    
+    environment = get_stack()
+
     # Environment-specific configuration with Pulumi config
     env_config = {
         "instance_type": config.get("instance-type"),
@@ -66,9 +77,9 @@ def create_eks_cluster():
         "max_size": config.get_int("max-size"),
         "desired_size": config.get_int("desired-size"),
         "nat_gateways": config.get_int("nat-gateways"),
-        "kubernetes_version": config.get("kubernetes-version")
+        "kubernetes_version": config.get("kubernetes-version"),
     }
-    
+
     # Common configuration using Pulumi config
     config_vars = {
         "node_disk_size": config.get_int("node-disk-size"),
@@ -81,15 +92,15 @@ def create_eks_cluster():
         "enable_private_endpoint": config.get_bool("enable-private-endpoint"),
         "cluster_name_prefix": config.get("cluster-name-prefix"),
     }
-    
+
     # Tag configuration using Pulumi config
     tags = {
         "Environment": environment,
         "Project": config.get("project-name"),
         "ManagedBy": config.get("managed-by"),
-        "CostCenter": config.get("cost-center")
+        "CostCenter": config.get("cost-center"),
     }
-    
+
     # Create VPC with environment-specific settings
     vpc = awsx.ec2.Vpc(
         f"eks-vpc-{environment}",
@@ -98,47 +109,54 @@ def create_eks_cluster():
         enable_dns_hostnames=True,
         enable_dns_support=True,
         nat_gateways=awsx.ec2.NatGatewayConfigurationArgs(
-            strategy=awsx.ec2.NatGatewayStrategy.SINGLE if env_config["nat_gateways"] == 1 
-                    else awsx.ec2.NatGatewayStrategy.ONE_PER_AZ
+            strategy=awsx.ec2.NatGatewayStrategy.SINGLE
+            if env_config["nat_gateways"] == 1
+            else awsx.ec2.NatGatewayStrategy.ONE_PER_AZ
         ),
-        tags=tags
+        tags=tags,
     )
-    
+
     # Create IAM roles using helper functions
-    cluster_role = create_iam_role(f"eks-cluster-role-{environment}", "eks.amazonaws.com", tags)
-    node_role = create_iam_role(f"eks-node-role-{environment}", "ec2.amazonaws.com", tags)
-    
+    cluster_role = create_iam_role(
+        f"eks-cluster-role-{environment}", "eks.amazonaws.com", tags
+    )
+    node_role = create_iam_role(
+        f"eks-node-role-{environment}", "ec2.amazonaws.com", tags
+    )
+
     # Attach cluster policy
     cluster_policy_attachment = aws.iam.RolePolicyAttachment(
         f"eks-cluster-policy-{environment}",
         role=cluster_role.name,
-        policy_arn="arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+        policy_arn="arn:aws:iam::aws:policy/AmazonEKSClusterPolicy",
     )
-    
+
     # Attach node policies using helper function
     node_policies = [
         "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
         "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
-        "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+        "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
     ]
-    
+
     node_policy_attachments = attach_policies_to_role(
-        node_role.name,
-        node_policies,
-        environment
+        node_role, node_policies, f"eks-node-{environment}"
     )
-    
+
     # Configure endpoint access
     endpoint_config = {
         "private_access": config_vars["enable_private_endpoint"],
-        "public_access": config_vars["enable_public_endpoint"] if config_vars["enable_private_endpoint"] else True
+        "public_access": config_vars["enable_public_endpoint"]
+        if config_vars["enable_private_endpoint"]
+        else True,
     }
-    
+
     # Configure cluster logging
-    cluster_logging_types = [
-        "api", "audit", "authenticator", "controllerManager", "scheduler"
-    ] if config_vars["enable_cluster_logging"] else []
-    
+    cluster_logging_types = (
+        ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+        if config_vars["enable_cluster_logging"]
+        else []
+    )
+
     # Create EKS cluster
     cluster = aws.eks.Cluster(
         f"eks-cluster-{environment}",
@@ -152,9 +170,9 @@ def create_eks_cluster():
         version=env_config["kubernetes_version"],
         enabled_cluster_log_types=cluster_logging_types,
         tags=tags,
-        opts=pulumi.ResourceOptions(depends_on=[cluster_policy_attachment])
+        opts=ResourceOptions(depends_on=[cluster_policy_attachment]),
     )
-    
+
     # Create EKS node group
     node_group = aws.eks.NodeGroup(
         f"eks-nodegroup-{environment}",
@@ -168,18 +186,18 @@ def create_eks_cluster():
         scaling_config=aws.eks.NodeGroupScalingConfigArgs(
             desired_size=env_config["desired_size"],
             max_size=env_config["max_size"],
-            min_size=env_config["min_size"]
+            min_size=env_config["min_size"],
         ),
         labels=tags,
         tags=tags,
-        opts=pulumi.ResourceOptions(depends_on=node_policy_attachments)
+        opts=ResourceOptions(depends_on=node_policy_attachments),
     )
-    
+
     # Add VPC endpoints for cost optimization (if enabled)
     if config_vars["enable_vpc_endpoints"]:
         # Get current region
         current_region = aws.get_region()
-        
+
         # Create a security group for VPC endpoints
         endpoint_sg = aws.ec2.SecurityGroup(
             f"vpc-endpoint-sg-{environment}",
@@ -191,49 +209,58 @@ def create_eks_cluster():
                     from_port=443,
                     to_port=443,
                     protocol="tcp",
-                    cidr_blocks=[config_vars["vpc_cidr"]]
+                    cidr_blocks=[config_vars["vpc_cidr"]],
                 )
             ],
             egress=[
                 aws.ec2.SecurityGroupEgressArgs(
-                    from_port=0,
-                    to_port=0,
-                    protocol="-1",
-                    cidr_blocks=["0.0.0.0/0"]
+                    from_port=0, to_port=0, protocol="-1", cidr_blocks=["0.0.0.0/0"]
                 )
             ],
-            tags=tags
+            tags=tags,
         )
-        
+
         # S3 Gateway Endpoint (free)
         # Note: Gateway endpoints automatically associate with all route tables
         create_vpc_endpoint(
-            "s3", vpc.vpc_id, 
-            f"com.amazonaws.{current_region.name}.s3",
-            "Gateway", environment, tags
+            "s3",
+            vpc.vpc_id,
+            Output.concat("com.amazonaws.", current_region.name, ".s3"),
+            "Gateway",
+            environment,
+            tags,
         )
-        
+
         # Interface endpoints for EC2 and STS
         for service in ["ec2", "sts"]:
             create_vpc_endpoint(
-                service, vpc.vpc_id,
-                f"com.amazonaws.{current_region.name}.{service}",
-                "Interface", environment, tags,
+                service,
+                vpc.vpc_id,
+                Output.concat("com.amazonaws.", current_region.name, f".{service}"),
+                "Interface",
+                environment,
+                tags,
                 subnet_ids=vpc.private_subnet_ids,
-                security_group_ids=[endpoint_sg.id]
+                security_group_ids=[endpoint_sg.id],
             )
-    
+
     # Export important values
-    pulumi.export("cluster_name", cluster.name)
-    pulumi.export("cluster_endpoint", cluster.endpoint)
-    pulumi.export("cluster_arn", cluster.arn)
-    pulumi.export("cluster_version", cluster.version)
-    pulumi.export("vpc_id", vpc.vpc_id)
-    pulumi.export("node_group_name", node_group.node_group_name)
-    pulumi.export("kubectl_command", pulumi.Output.concat(
-        "aws eks update-kubeconfig --name ", cluster.name, 
-        " --region ", aws.get_region().name
-    ))
+    export("cluster_name", cluster.name)
+    export("cluster_endpoint", cluster.endpoint)
+    export("cluster_arn", cluster.arn)
+    export("cluster_version", cluster.version)
+    export("vpc_id", vpc.vpc_id)
+    export("node_group_name", node_group.node_group_name)
+    export(
+        "kubectl_command",
+        Output.concat(
+            "aws eks update-kubeconfig --name ",
+            cluster.name,
+            " --region ",
+            aws.get_region().name,
+        ),
+    )
+
 
 if __name__ == "__main__":
     create_eks_cluster()

@@ -14,10 +14,10 @@ tasks:
 
   # Setup Tasks
   setup:
-    desc: "Complete setup: install dependencies and initialize stacks"
+    desc: "Complete setup: install dependencies, generate lockfile, and initialize stacks"
     cmds:
       - task: pulumi:deps
-      - task: pulumi:sync
+      - task: pulumi:lock
       - task: pulumi:init
         vars:
           env: staging
@@ -28,19 +28,55 @@ tasks:
 
   # Pulumi Dependencies
   pulumi:deps:
-    desc: "Install Python dependencies for Pulumi using uv"
-    dir: pulumi
+    desc: "Install Python dependencies for Pulumi using uv and pyproject.toml (from project root)"
     cmds:
-      - uv venv
-      - uv pip install -r requirements.txt
+      - uv sync --all-extras
     silent: true
 
-  pulumi:sync:
-    desc: "Sync dependencies and create lock file using uv"
-    dir: pulumi
+  pulumi:lock:
+    desc: "Generate or update uv.lock from pyproject.toml using uv (from project root)"
     cmds:
-      - uv pip compile requirements.txt -o requirements.lock
-      - echo "✓ Created requirements.lock with pinned versions"
+      - uv lock
+      - echo "✓ Generated/updated uv.lock with pinned versions"
+    silent: true
+
+  # Code Quality
+  lint:
+    desc: "Lint Python code with ruff"
+    cmds:
+      - uv run ruff check pulumi
+    silent: true
+
+  format:
+    desc: "Format Python code with ruff"
+    cmds:
+      - uv run ruff format pulumi
+    silent: true
+
+  typecheck:
+    desc: "Type-check Python code with mypy"
+    cmds:
+      - uv run mypy pulumi
+    silent: true
+
+  check:
+    desc: "Run all code quality checks (lint, format, typecheck)"
+    cmds:
+      - task: lint
+      - task: format
+      - task: typecheck
+    silent: true
+
+  precommit:
+    desc: "Run pre-commit hooks"
+    cmds:
+      - pre-commit run --all-files
+    silent: true
+
+  precommit:update:
+    desc: "Update pre-commit hooks"
+    cmds:
+      - pre-commit autoupdate --repo https://github.com/pre-commit/pre-commit-hooks
     silent: true
 
   # Pulumi Stack Management
@@ -164,7 +200,7 @@ tasks:
         CLUSTER_NAME=$(pulumi stack output cluster_name 2>/dev/null | tr -d '"')
         NODE_GROUP_NAME=$(pulumi stack output node_group_name 2>/dev/null | tr -d '"')
         REGION=$(pulumi config get aws:region)
-        
+
         if [ -n "$CLUSTER_NAME" ] && [ -n "$NODE_GROUP_NAME" ]; then
           aws eks update-nodegroup-config \
             --region $REGION \
@@ -188,7 +224,7 @@ tasks:
       - |
         CLUSTER_NAME=$(pulumi stack output cluster_name 2>/dev/null | tr -d '"')
         REGION=$(pulumi config get aws:region)
-        
+
         if [ -n "$CLUSTER_NAME" ]; then
           echo "Configuring kubectl for cluster: $CLUSTER_NAME"
           aws eks update-kubeconfig \
@@ -319,17 +355,14 @@ tasks:
 
   # Validation Tasks
   validate:
-    desc: "Validate Pulumi configuration"
-    dir: pulumi
-    vars:
-      ENV: '{{.env | default "staging"}}'
-    deps: [pulumi:select]
+    desc: "Validate Pulumi configuration and code quality"
     cmds:
+      - echo "=== Running Code Quality Checks ==="
+      - task: check
       - echo "=== Validating Pulumi Configuration ==="
-      - uv run python -m py_compile __main__.py
-      - echo "✓ Python syntax is valid"
-      - pulumi preview --dry-run
-      - echo "✓ Pulumi configuration is valid"
+      - task: preview
+        vars:
+          env: '{{.env | default "staging"}}'
     silent: true
 
   # Quick aliases for backward compatibility

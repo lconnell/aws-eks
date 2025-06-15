@@ -80,7 +80,7 @@ All configuration is managed through Pulumi's native config system:
 - **NAT Gateways:** 1 (cost optimization)
 
 #### Production Environment
-- **Instance Type:** m5.large  
+- **Instance Type:** m5.large
 - **Node Group:** 2-10 nodes (3 desired)
 - **NAT Gateways:** 3 (high availability)
 
@@ -99,7 +99,7 @@ All configuration is managed through Pulumi's native config system:
     # Set basic configuration for staging
     task config:set env=staging key=project-name value="MyEKSProject"
     task config:set env=staging key=cost-center value="engineering"
-    
+
     # Configure production with different settings
     task config:set env=production key=production-instance-type value="m5.xlarge"
     task config:set env=production key=production-desired-size value="5"
@@ -109,8 +109,8 @@ All configuration is managed through Pulumi's native config system:
     ```bash
     # For staging environment
     task pulumi:init env=staging
-    
-    # For production environment  
+
+    # For production environment
     task pulumi:init env=production
     ```
 
@@ -169,7 +169,7 @@ enable_alb         = true
 For production setups with your own domain:
 
 ```bash
-# Edit terraform/staging.tfvars  
+# Edit terraform/staging.tfvars
 use_default_domain = false
 enable_alb         = true
 domain_name        = "yourdomain.com"  # Replace with your actual domain

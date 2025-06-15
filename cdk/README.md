@@ -21,11 +21,11 @@ This CDK application deploys an Amazon EKS cluster with environment-specific con
    ```bash
    # Copy the example .env file
    cp .env.example .env
-   
+
    # Edit .env with your specific values
    vim .env  # or use your preferred editor
    ```
-   
+
    **Required variables to update in .env:**
    - `CDK_DEFAULT_ACCOUNT`: Your AWS account ID
    - `CDK_DEFAULT_REGION`: Your preferred AWS region
@@ -70,7 +70,7 @@ All configuration is managed through the `.env` file. Key configuration options 
 - **NAT Gateways:** 1 (cost optimization)
 
 #### Production Environment
-- **Instance Type:** m5.large  
+- **Instance Type:** m5.large
 - **Node Group:** 2-10 nodes (3 desired)
 - **NAT Gateways:** 3 (high availability)
 
