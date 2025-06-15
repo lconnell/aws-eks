@@ -1,34 +1,43 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to me, Cascade, when working with code in this repository.
 
 ## Project Overview
 
-This is an AWS EKS (Elastic Kubernetes Service) infrastructure repository using Pulumi with Python as the primary IaC tool. The project provides multi-environment EKS cluster deployments with production-ready configurations following software engineering best practices with DRY principles, helper functions, and centralized configuration management.
+This is an AWS EKS (Elastic Kubernetes Service) infrastructure repository using Pulumi with Python as the primary IaC tool. The project provides multi-environment EKS cluster deployments with production-ready configurations.
+
+The project uses a modern Python toolchain:
+- **Dependency Management:** `uv` with `pyproject.toml`
+- **Code Quality:** `ruff` for linting/formatting and `mypy` for type checking.
+- **Automation:** `Task` for running commands.
+- **Git Hooks:** `pre-commit` for automated checks.
 
 ## Common Development Commands
 
-All commands use Task (taskfile.dev). Run from the project root directory:
+All commands use Task (`Taskfile.yml`). Run from the project root directory.
 
-### Quick Setup
+### Setup & Code Quality
 ```bash
-# Complete setup: install dependencies and initialize stacks
+# Complete setup: install dependencies and pre-commit hooks
 task setup
+
+# Run all code quality checks (lint, format, typecheck)
+task check
+
+# Manually run pre-commit hooks on all files
+task precommit
 ```
 
 ### Pulumi Stack Management
 ```bash
 # Initialize a new stack
 task pulumi:init env=staging
-task pulumi:init env=production
 
 # Select a stack
 task pulumi:select env=staging
-task pulumi:select env=production
 
 # View stack information
 task info env=staging
-task status env=staging
 ```
 
 ### Infrastructure Management
@@ -42,26 +51,11 @@ task deploy env=staging
 # Destroy infrastructure
 task destroy env=staging
 
-# View stack outputs
-task outputs env=staging
-
-# Scale node group
-task eks:scale env=staging desiredSize=3
+# Run code quality checks and then preview
+task validate env=staging
 
 # Configure kubectl access
 task eks:kubeconfig env=staging
-```
-
-### ALB and Route 53 Management
-```bash
-# Check ALB and Route 53 status (coming soon)
-task alb:status env=staging
-
-# Get DNS nameserver setup instructions (coming soon)
-task alb:dns:instructions env=staging
-
-# Check Kubernetes service status
-task k8s:status
 ```
 
 ### Development and Debugging
@@ -74,30 +68,29 @@ task config:set env=staging key=node-disk-size value=200
 
 # Refresh stack state
 task refresh env=staging
-
-# Run Pulumi commands directly
-task pulumi:cmd env=staging -- stack output cluster_name
-task pulumi:cmd env=staging -- stack export
 ```
 
 ## Architecture and Key Concepts
 
 ### Infrastructure Organization
-- **Multi-environment**: Uses Pulumi stacks with environment-specific configuration via Pulumi config
-- **Remote State**: Pulumi Service manages state automatically with encryption and collaboration features
-- **Modern Libraries**: Uses `pulumi-aws` and `pulumi-awsx` for simplified AWS resource management
-- **Code Quality**: Follows DRY principles with helper functions, centralized configuration, and type hints
+- **Multi-environment**: Uses Pulumi stacks with environment-specific configuration via Pulumi config.
+- **Dependency Management**: Uses `uv` and `pyproject.toml` for fast, reproducible dependency management.
+- **Code Quality**: Enforced via `ruff`, `mypy`, and `pre-commit` hooks. Follows DRY principles with helper functions and centralized configuration.
+- **Modern Libraries**: Uses `pulumi-aws` and `pulumi-awsx` for simplified AWS resource management.
 
 ### EKS Configuration Structure
-- **VPC Setup**: Custom VPC with public/private subnets across 3 AZs using `awsx.ec2.Vpc`
-- **Node Groups**: Managed node groups with auto-scaling (t3.medium for staging, m5.large for production)
-- **Access Control**: Uses kubectl commands for cluster access after deployment (simplified approach)
-- **Authentication**: Standard AWS EKS authentication via AWS CLI and kubeconfig
-- **Logging**: All control plane components log to CloudWatch
-- **ALB Integration**: To be implemented - AWS Application Load Balancer with flexible domain configuration
-- **VPC Endpoints**: Minimal set for cost optimization (S3, EC2, STS) - $0/month for S3, ~$14.40/month for EC2+STS
+- **VPC Setup**: Custom VPC with public/private subnets across 3 AZs using `awsx.ec2.Vpc`.
+- **Node Groups**: Managed node groups with auto-scaling.
+- **Logging**: All control plane components log to CloudWatch.
+- **VPC Endpoints**: Minimal set for cost optimization.
 
 ### Key Files
+- `pulumi/eks.py`: The main Pulumi application entry point.
+- `pyproject.toml`: Defines project metadata, dependencies, and tool configurations for `uv`, `ruff`, and `mypy`.
+- `uv.lock`: Locked dependency versions for reproducible environments.
+- `.pre-commit-config.yaml`: Defines the pre-commit hooks for automated code quality checks.
+- `Taskfile.yml`: Contains all automation tasks for the project.
+- `Pulumi.<stack>.yaml`: Stack-specific configuration files.
 - `pulumi/__main__.py`: Main infrastructure definition with helper functions and centralized configuration
 - `pulumi/requirements.txt`: Python dependencies for Pulumi runtime
 - `pulumi/.env.example`: Environment variables template for configuration

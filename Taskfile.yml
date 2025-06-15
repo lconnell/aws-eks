@@ -18,6 +18,7 @@ tasks:
     cmds:
       - task: pulumi:deps
       - task: pulumi:lock
+      - task: precommit:install
       - task: pulumi:init
         vars:
           env: staging
@@ -67,6 +68,12 @@ tasks:
       - task: typecheck
     silent: true
 
+  precommit:install:
+    desc: "Install pre-commit hooks to .git/hooks"
+    cmds:
+      - pre-commit install
+    silent: true
+
   precommit:
     desc: "Run pre-commit hooks"
     cmds:
@@ -85,6 +92,8 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
+    deps:
+      - "pulumi:select"
     cmds:
       - pulumi stack init {{.ENV}} || pulumi stack select {{.ENV}}
       - pulumi config set aws:region us-east-1
@@ -105,7 +114,8 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps: [pulumi:select]
+    deps:
+      - "pulumi:select"
     cmds:
       - pulumi preview
     silent: true
@@ -115,7 +125,8 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps: [pulumi:select]
+    deps:
+      - "pulumi:select"
     cmds:
       - pulumi up --yes
     silent: true
@@ -125,7 +136,8 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps: [pulumi:select]
+    deps:
+      - "pulumi:select"
     cmds:
       - pulumi destroy --yes
     silent: true
@@ -136,7 +148,8 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps: [pulumi:select]
+    deps:
+      - "pulumi:select"
     cmds:
       - pulumi stack output
     silent: true
@@ -146,7 +159,8 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps: [pulumi:select]
+    deps:
+      - "pulumi:select"
     cmds:
       - pulumi stack
     silent: true
@@ -156,7 +170,8 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps: [pulumi:select]
+    deps:
+      - "pulumi:select"
     cmds:
       - echo "=== Stack Information ==="
       - pulumi stack
@@ -170,7 +185,8 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps: [pulumi:select]
+    deps:
+      - "pulumi:select"
     cmds:
       - pulumi config
     silent: true
@@ -180,7 +196,8 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps: [pulumi:select]
+    deps:
+      - "pulumi:select"
     cmds:
       - pulumi refresh --yes
     silent: true
@@ -194,7 +211,8 @@ tasks:
       DESIRED_SIZE: '{{.desiredSize | default "2"}}'
       MAX_SIZE: '{{.maxSize | default "3"}}'
       MIN_SIZE: '{{.minSize | default "1"}}'
-    deps: [pulumi:select]
+    deps:
+      - "pulumi:select"
     cmds:
       - |
         CLUSTER_NAME=$(pulumi stack output cluster_name 2>/dev/null | tr -d '"')
@@ -219,7 +237,8 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps: [pulumi:select]
+    deps:
+      - "pulumi:select"
     cmds:
       - |
         CLUSTER_NAME=$(pulumi stack output cluster_name 2>/dev/null | tr -d '"')
@@ -269,7 +288,8 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps: [pulumi:select]
+    deps:
+      - "pulumi:select"
     cmds:
       - echo "ALB integration not yet implemented in Pulumi version"
       - echo "Current stack outputs:"
@@ -289,7 +309,8 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps: [pulumi:select]
+    deps:
+      - "pulumi:select"
     cmds:
       - pulumi {{.CLI_ARGS}}
     silent: true
@@ -299,7 +320,8 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps: [pulumi:select]
+    deps:
+      - "pulumi:select"
     cmds:
       - pulumi logs --follow
     silent: true
@@ -312,7 +334,8 @@ tasks:
       ENV: '{{.env | default "staging"}}'
       KEY: '{{.key}}'
       VALUE: '{{.value}}'
-    deps: [pulumi:select]
+    deps:
+      - "pulumi:select"
     cmds:
       - pulumi config set {{.KEY}} {{.VALUE}}
       - echo "✓ Set {{.KEY}} = {{.VALUE}} for {{.ENV}} stack"
@@ -325,7 +348,8 @@ tasks:
       ENV: '{{.env | default "staging"}}'
       KEY: '{{.key}}'
       VALUE: '{{.value}}'
-    deps: [pulumi:select]
+    deps:
+      - "pulumi:select"
     cmds:
       - pulumi config set --secret {{.KEY}} {{.VALUE}}
       - echo "✓ Set secret {{.KEY}} for {{.ENV}} stack"
@@ -337,7 +361,8 @@ tasks:
     vars:
       ENV: '{{.env | default "staging"}}'
       KEY: '{{.key}}'
-    deps: [pulumi:select]
+    deps:
+      - "pulumi:select"
     cmds:
       - pulumi config get {{.KEY}}
     silent: true
@@ -347,7 +372,8 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps: [pulumi:select]
+    deps:
+      - "pulumi:select"
     cmds:
       - echo "=== Configuration for {{.ENV}} stack ==="
       - pulumi config
