@@ -1,7 +1,8 @@
+---
 config:
   aws:region: us-east-1
   eks:node-disk-size: "100"
-  eks:node-ami-type: AL2_x86_64
+  eks:node-ami-type: AL2023_x86_64_STANDARD
   eks:vpc-max-azs: "3"
   eks:vpc-cidr: 10.0.0.0/16
   eks:enable-vpc-endpoints: "true"
@@ -18,3 +19,6 @@ config:
   eks:max-size: "10"
   eks:desired-size: "3"
   eks:nat-gateways: "3"
+  eks:enable-alb-controller: "true"
+  eks:enable-encryption: "true"
+  eks:kms-key-id: "alias/eks-production-encryption"

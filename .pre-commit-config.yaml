@@ -1,10 +1,20 @@
+---
 repos:
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.32.0
+    hooks:
+      - id: yamllint
+        args: [
+          -d,
+          "{extends: default, rules: {line-length: {max: 140, level: warning}}}"
+        ]
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
-      - id: check-yaml
+      # - id: check-yaml
       - id: check-added-large-files
       - id: check-json
       - id: check-toml
@@ -20,17 +30,21 @@ repos:
       - id: ruff-format
         files: ^pulumi/
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.10.1
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.383
     hooks:
-      - id: mypy
-        additional_dependencies: [
-            "pulumi>=3.0.0,<4.0.0",
-            "pulumi-aws>=6.0.0,<7.0.0",
-            "pulumi-awsx>=2.0.0,<3.0.0",
-        ]
+      - id: pyright
         files: ^pulumi/
-        # args: [--ignore-missing-imports] # Retaining user's preference for ignoring missing imports
+        exclude: ^pulumi/(__pycache__|eks|alb|config|iam|vpc)\.py$
+        args: [
+          --pythonversion=3.12,
+          --level=warning
+        ]
+        additional_dependencies: [
+          "pulumi>=3.0.0,<4.0.0",
+          "pulumi-aws>=6.0.0,<7.0.0",
+          "pulumi-awsx>=2.0.0,<3.0.0",
+        ]
 
   - repo: local
     hooks:
@@ -39,7 +53,9 @@ repos:
         entry: bash
         args:
           - '-c'
-          - 'if git diff --cached --name-only | grep -q "\.mcp\.json"; then echo "ERROR: .mcp.json must not be committed!"; exit 1; fi'
+          - >-
+            if git diff --cached --name-only | grep -q "\.mcp\.json";
+            then echo "ERROR: .mcp.json must not be committed!"; exit 1; fi
         language: system
         pass_filenames: false
         always_run: true

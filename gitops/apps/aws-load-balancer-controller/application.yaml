@@ -1,0 +1,81 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-load-balancer-controller
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://aws.github.io/eks-charts
+    chart: aws-load-balancer-controller
+    targetRevision: 1.11.0
+    helm:
+      values: |
+        clusterName: CLUSTER_NAME_PLACEHOLDER
+        serviceAccount:
+          create: true
+          name: aws-load-balancer-controller
+          annotations:
+            eks.amazonaws.com/role-arn: ALB_ROLE_ARN_PLACEHOLDER
+        region: us-east-1
+        vpcId: VPC_ID_PLACEHOLDER
+
+        # Use default ingress class for simplicity
+        ingressClass: alb
+        ingressClassParams:
+          create: true
+
+        # Additional configurations
+        enableServiceMutatorWebhook: true
+        enableCertManager: false
+
+        # Resource limits
+        resources:
+          limits:
+            cpu: 200m
+            memory: 500Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+
+        # Node selector (optional)
+        nodeSelector: {}
+
+        # Tolerations (optional)
+        tolerations: []
+
+        # Affinity (optional)
+        affinity: {}
+
+        # Pod disruption budget
+        podDisruptionBudget:
+          maxUnavailable: 1
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=false  # kube-system already exists
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  ignoreDifferences:
+    - group: ""
+      kind: "Secret"
+      jsonPointers:
+        - /data

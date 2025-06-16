@@ -1,0 +1,52 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-helm-values
+  namespace: argocd
+data:
+  values.yaml: |
+    global:
+      domain: argocd-staging.your-domain.com  # Update with your domain
+
+    configs:
+      cm:
+        application.instanceLabelKey: argocd.argoproj.io/instance
+        server.rbac.log.enforce.enable: false
+        exec.enabled: true
+        admin.enabled: true
+        timeout.reconciliation: 180s
+
+    server:
+      replicas: 1
+      service:
+        type: ClusterIP
+      ingress:
+        enabled: true
+        ingressClassName: alb
+        annotations:
+          alb.ingress.kubernetes.io/scheme: internet-facing
+          alb.ingress.kubernetes.io/target-type: ip
+          alb.ingress.kubernetes.io/healthcheck-path: /healthz
+          alb.ingress.kubernetes.io/listen-ports: |
+            '[{"HTTP": 80}, {"HTTPS": 443}]'
+          alb.ingress.kubernetes.io/ssl-redirect: "443"
+          alb.ingress.kubernetes.io/tags: Environment=staging,Application=argocd
+        hosts:
+          - argocd-staging.your-domain.com  # Update with your domain
+        tls:
+          - secretName: argocd-server-tls
+            hosts:
+              - argocd-staging.your-domain.com
+
+    repoServer:
+      replicas: 1
+
+    applicationSet:
+      enabled: true
+
+    notifications:
+      enabled: false
+
+    dex:
+      enabled: false

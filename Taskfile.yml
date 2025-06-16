@@ -1,3 +1,4 @@
+---
 # https://taskfile.dev
 
 version: '3'
@@ -16,8 +17,8 @@ tasks:
   setup:
     desc: "Complete setup: install dependencies, generate lockfile, and initialize stacks"
     cmds:
-      - task: pulumi:deps
-      - task: pulumi:lock
+      - task: deps
+      - task: lock
       - task: precommit:install
       - task: pulumi:init
         vars:
@@ -28,14 +29,16 @@ tasks:
     silent: true
 
   # Pulumi Dependencies
-  pulumi:deps:
-    desc: "Install Python dependencies for Pulumi using uv and pyproject.toml (from project root)"
+  deps:
+    desc: "Install Python dependencies for Pulumi using uv and pyproject.toml (from pulumi directory)"
+    dir: pulumi
     cmds:
       - uv sync --all-extras
     silent: true
 
-  pulumi:lock:
-    desc: "Generate or update uv.lock from pyproject.toml using uv (from project root)"
+  lock:
+    desc: "Generate or update uv.lock from pyproject.toml using uv (from pulumi directory)"
+    dir: pulumi
     cmds:
       - uv lock
       - echo "✓ Generated/updated uv.lock with pinned versions"
@@ -45,7 +48,7 @@ tasks:
   lint:
     desc: "Lint Python code with ruff"
     cmds:
-      - uv run ruff check pulumi
+      - uv run ruff check pulumi --fix
     silent: true
 
   format:
@@ -55,9 +58,10 @@ tasks:
     silent: true
 
   typecheck:
-    desc: "Type-check Python code with mypy"
+    desc: "Type-check Python code with pyright"
+    dir: pulumi
     cmds:
-      - uv run mypy pulumi
+      - uv run pyright
     silent: true
 
   check:
@@ -92,11 +96,9 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps:
-      - "pulumi:select"
     cmds:
-      - pulumi stack init {{.ENV}} || pulumi stack select {{.ENV}}
-      - pulumi config set aws:region us-east-1
+      - uv run pulumi stack init {{.ENV}} || uv run pulumi stack select {{.ENV}}
+      - uv run pulumi config set aws:region us-east-1
     silent: true
 
   pulumi:select:
@@ -105,7 +107,7 @@ tasks:
     vars:
       ENV: '{{.env | default "staging"}}'
     cmds:
-      - pulumi stack select {{.ENV}}
+      - uv run --directory .. pulumi stack select {{.ENV}}
     silent: true
 
   # Infrastructure Management
@@ -114,10 +116,9 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps:
-      - "pulumi:select"
     cmds:
-      - pulumi preview
+      - uv run pulumi stack select {{.ENV}}
+      - uv run pulumi preview
     silent: true
 
   deploy:
@@ -125,10 +126,10 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps:
-      - "pulumi:select"
     cmds:
-      - pulumi up --yes
+      - uv sync
+      - uv run pulumi stack select {{.ENV}}
+      - uv run pulumi up --yes
     silent: true
 
   destroy:
@@ -136,10 +137,10 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps:
-      - "pulumi:select"
     cmds:
-      - pulumi destroy --yes
+      - uv sync
+      - uv run pulumi stack select {{.ENV}}
+      - uv run pulumi destroy --yes
     silent: true
 
   # Stack Information
@@ -148,10 +149,9 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps:
-      - "pulumi:select"
     cmds:
-      - pulumi stack output
+      - uv run pulumi stack select {{.ENV}}
+      - uv run pulumi stack output
     silent: true
 
   status:
@@ -159,10 +159,9 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps:
-      - "pulumi:select"
     cmds:
-      - pulumi stack
+      - uv run pulumi stack select {{.ENV}}
+      - uv run pulumi stack
     silent: true
 
   info:
@@ -170,14 +169,12 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps:
-      - "pulumi:select"
     cmds:
       - echo "=== Stack Information ==="
-      - pulumi stack
+      - source ../.venv/bin/activate && pulumi stack
       - echo ""
       - echo "=== Stack Outputs ==="
-      - pulumi stack output
+      - source ../.venv/bin/activate && pulumi stack output
     silent: true
 
   config:
@@ -185,10 +182,9 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps:
-      - "pulumi:select"
     cmds:
-      - pulumi config
+      - uv run pulumi stack select {{.ENV}}
+      - uv run pulumi config
     silent: true
 
   refresh:
@@ -196,10 +192,16 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps:
-      - "pulumi:select"
     cmds:
-      - pulumi refresh --yes
+      - uv run pulumi stack select {{.ENV}}
+      - uv run pulumi refresh --yes
+    silent: true
+
+  cancel:
+    desc: "Cancel currently running Pulumi operation"
+    dir: pulumi
+    cmds:
+      - uv run pulumi cancel
     silent: true
 
   # EKS Management Tasks
@@ -211,13 +213,12 @@ tasks:
       DESIRED_SIZE: '{{.desiredSize | default "2"}}'
       MAX_SIZE: '{{.maxSize | default "3"}}'
       MIN_SIZE: '{{.minSize | default "1"}}'
-    deps:
-      - "pulumi:select"
     cmds:
+      - uv run pulumi stack select {{.ENV}}
       - |
-        CLUSTER_NAME=$(pulumi stack output cluster_name 2>/dev/null | tr -d '"')
-        NODE_GROUP_NAME=$(pulumi stack output node_group_name 2>/dev/null | tr -d '"')
-        REGION=$(pulumi config get aws:region)
+        CLUSTER_NAME=$(uv run pulumi stack output cluster_name 2>/dev/null | tr -d '"')
+        NODE_GROUP_NAME=$(uv run pulumi stack output node_group_name 2>/dev/null | tr -d '"')
+        REGION=$(uv run pulumi config get aws:region)
 
         if [ -n "$CLUSTER_NAME" ] && [ -n "$NODE_GROUP_NAME" ]; then
           aws eks update-nodegroup-config \
@@ -237,25 +238,9 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps:
-      - "pulumi:select"
     cmds:
-      - |
-        CLUSTER_NAME=$(pulumi stack output cluster_name 2>/dev/null | tr -d '"')
-        REGION=$(pulumi config get aws:region)
-
-        if [ -n "$CLUSTER_NAME" ]; then
-          echo "Configuring kubectl for cluster: $CLUSTER_NAME"
-          aws eks update-kubeconfig \
-            --region $REGION \
-            --name $CLUSTER_NAME \
-            --alias $CLUSTER_NAME
-          echo "kubectl configured successfully"
-          echo "You can now run: kubectl get nodes"
-        else
-          echo "Error: Could not get cluster name from stack outputs"
-          exit 1
-        fi
+      - uv run pulumi stack select {{.ENV}}
+      - uv run pulumi stack output kubectl_command | sh
     silent: true
 
   # AWS Tasks
@@ -282,25 +267,10 @@ tasks:
       - kubectl get pods --all-namespaces
     silent: true
 
-  # ALB Tasks (to be implemented when ALB is added to Pulumi)
-  alb:status:
-    desc: "Show ALB information (to be implemented)"
-    dir: pulumi
-    vars:
-      ENV: '{{.env | default "staging"}}'
-    deps:
-      - "pulumi:select"
+  k8s:alb:domains:
+    desc: "Show ALB domain names"
     cmds:
-      - echo "ALB integration not yet implemented in Pulumi version"
-      - echo "Current stack outputs:"
-      - pulumi stack output
-    silent: true
-
-  alb:dns:instructions:
-    desc: "Show DNS configuration instructions (to be implemented)"
-    cmds:
-      - echo "ALB DNS configuration not yet implemented in Pulumi version"
-      - echo "This will be available after ALB integration is complete"
+      - kubectl get ingress -o custom-columns="NAME:.metadata.name,DOMAIN:.status.loadBalancer.ingress[0].hostname"
     silent: true
 
   # Development Tasks
@@ -309,10 +279,8 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps:
-      - "pulumi:select"
     cmds:
-      - pulumi {{.CLI_ARGS}}
+      - uv run pulumi {{.CLI_ARGS}}
     silent: true
 
   logs:
@@ -320,10 +288,8 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps:
-      - "pulumi:select"
     cmds:
-      - pulumi logs --follow
+      - uv run pulumi logs --follow
     silent: true
 
   # Configuration Management
@@ -334,10 +300,9 @@ tasks:
       ENV: '{{.env | default "staging"}}'
       KEY: '{{.key}}'
       VALUE: '{{.value}}'
-    deps:
-      - "pulumi:select"
     cmds:
-      - pulumi config set {{.KEY}} {{.VALUE}}
+      - uv run pulumi stack select {{.ENV}}
+      - uv run pulumi config set {{.KEY}} {{.VALUE}}
       - echo "✓ Set {{.KEY}} = {{.VALUE}} for {{.ENV}} stack"
     silent: true
 
@@ -348,10 +313,9 @@ tasks:
       ENV: '{{.env | default "staging"}}'
       KEY: '{{.key}}'
       VALUE: '{{.value}}'
-    deps:
-      - "pulumi:select"
     cmds:
-      - pulumi config set --secret {{.KEY}} {{.VALUE}}
+      - uv run pulumi stack select {{.ENV}}
+      - uv run pulumi config set --secret {{.KEY}} {{.VALUE}}
       - echo "✓ Set secret {{.KEY}} for {{.ENV}} stack"
     silent: true
 
@@ -361,10 +325,9 @@ tasks:
     vars:
       ENV: '{{.env | default "staging"}}'
       KEY: '{{.key}}'
-    deps:
-      - "pulumi:select"
     cmds:
-      - pulumi config get {{.KEY}}
+      - uv run pulumi stack select {{.ENV}}
+      - uv run pulumi config get {{.KEY}}
     silent: true
 
   config:list:
@@ -372,11 +335,10 @@ tasks:
     dir: pulumi
     vars:
       ENV: '{{.env | default "staging"}}'
-    deps:
-      - "pulumi:select"
     cmds:
+      - uv run pulumi stack select {{.ENV}}
       - echo "=== Configuration for {{.ENV}} stack ==="
-      - pulumi config
+      - uv run pulumi config
     silent: true
 
   # Validation Tasks

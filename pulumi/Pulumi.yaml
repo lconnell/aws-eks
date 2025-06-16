@@ -1,4 +1,5 @@
+---
 name: eks-cluster
 runtime: python
-description: EKS cluster deployment with Pulumi Python - replicates CDK implementation
-main: eks.py
+description: EKS cluster deployment with Pulumi Python
+main: __main__.py

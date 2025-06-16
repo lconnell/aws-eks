@@ -1,0 +1,38 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-helm-values
+  namespace: argocd
+data:
+  values.yaml: |
+    global:
+      domain: argocd.example.com  # Will be overridden in overlays
+
+    configs:
+      cm:
+        # Allow ArgoCD to manage resources in all namespaces
+        application.instanceLabelKey: argocd.argoproj.io/instance
+        server.rbac.log.enforce.enable: false
+        exec.enabled: true
+        admin.enabled: true
+        timeout.reconciliation: 180s
+
+    server:
+      replicas: 1
+      service:
+        type: ClusterIP
+      ingress:
+        enabled: false  # We'll create a separate Ingress for ALB
+
+    repoServer:
+      replicas: 1
+
+    applicationSet:
+      enabled: true
+
+    notifications:
+      enabled: false
+
+    dex:
+      enabled: false

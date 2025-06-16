@@ -1,0 +1,180 @@
+---
+# Example ALB Ingress Configuration for Testing
+# This example demonstrates using the default amazonaws.com domain
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo-apps
+---
+# Simple echo server deployment for testing
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo-app
+  namespace: demo-apps
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: echo-app
+  template:
+    metadata:
+      labels:
+        app: echo-app
+    spec:
+      containers:
+        - name: echo-server
+          image: ealen/echo-server:latest
+          ports:
+            - containerPort: 80
+          env:
+            - name: PORT
+              value: "80"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+---
+# Service for echo app
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-service
+  namespace: demo-apps
+spec:
+  type: ClusterIP
+  selector:
+    app: echo-app
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+---
+# Sample nginx deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-app
+  namespace: demo-apps
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx-app
+  template:
+    metadata:
+      labels:
+        app: nginx-app
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+---
+# Service for nginx app
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+  namespace: demo-apps
+spec:
+  type: ClusterIP
+  selector:
+    app: nginx-app
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+---
+# ALB Ingress using default amazonaws.com domain
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demo-ingress
+  namespace: demo-apps
+  annotations:
+    # ALB Configuration
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/load-balancer-name: demo-apps-alb
+
+    # Health Check Configuration
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "2"
+
+    # Listen on HTTP only for testing
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+
+    # Tags
+    alb.ingress.kubernetes.io/tags: Environment=staging,Purpose=demo
+spec:
+  ingressClassName: alb
+  rules:
+    # Path-based routing example
+    - http:
+        paths:
+          - path: /echo
+            pathType: Prefix
+            backend:
+              service:
+                name: echo-service
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx-service
+                port:
+                  number: 80
+---
+# Alternative: Host-based routing example (commented out)
+# Uncomment this to test host-based routing instead
+#
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: demo-ingress-hosts
+#   namespace: demo-apps
+#   annotations:
+#     alb.ingress.kubernetes.io/scheme: internet-facing
+#     alb.ingress.kubernetes.io/target-type: ip
+#     alb.ingress.kubernetes.io/healthcheck-path: /
+# spec:
+#   ingressClassName: alb
+#   rules:
+#     - host: echo.elb.amazonaws.com  # Will be replaced with actual ALB DNS
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: echo-service
+#                 port:
+#                   number: 80
+#     - host: nginx.elb.amazonaws.com  # Will be replaced with actual ALB DNS
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: nginx-service
+#                 port:
+#                   number: 80

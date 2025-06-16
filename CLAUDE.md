@@ -85,37 +85,41 @@ task refresh env=staging
 - **VPC Endpoints**: Minimal set for cost optimization.
 
 ### Key Files
-- `pulumi/eks.py`: The main Pulumi application entry point.
-- `pyproject.toml`: Defines project metadata, dependencies, and tool configurations for `uv`, `ruff`, and `mypy`.
-- `uv.lock`: Locked dependency versions for reproducible environments.
-- `.pre-commit-config.yaml`: Defines the pre-commit hooks for automated code quality checks.
-- `Taskfile.yml`: Contains all automation tasks for the project.
-- `Pulumi.<stack>.yaml`: Stack-specific configuration files.
-- `pulumi/__main__.py`: Main infrastructure definition with helper functions and centralized configuration
-- `pulumi/requirements.txt`: Python dependencies for Pulumi runtime
-- `pulumi/.env.example`: Environment variables template for configuration
-- `pulumi/Pulumi.yaml`: Project configuration
-- `pulumi/Pulumi.{staging,production}.yaml`: Stack-specific configurations
-- `pulumi/README.md`: Detailed deployment documentation with best practices
+- `pulumi/__main__.py`: Main entry point that calls the EKS cluster creation
+- `pulumi/eks.py`: Core EKS cluster creation logic
+- `pulumi/config.py`: Centralized configuration management with validation
+- `pulumi/constants.py`: AWS ARNs, service endpoints, and default values
+- `pulumi/iam.py`: IAM role and policy management functions
+- `pulumi/vpc.py`: VPC and networking components
+- `pulumi/alb.py`: ALB controller IRSA role setup
+- `pulumi/types.py`: Type definitions for better type safety
+- `pulumi/pyproject.toml`: Project metadata, dependencies, and tool configurations
+- `pulumi/uv.lock`: Locked dependency versions for reproducible environments
+- `Pulumi.yaml`: Project configuration
+- `Pulumi.{staging,production}.yaml`: Stack-specific configurations
 - `Taskfile.yml`: Task automation definitions with Pulumi stack management
-- `ALB-SETUP.md`: Detailed guide for ALB configuration (to be updated for Pulumi)
+- `.pre-commit-config.yaml`: Pre-commit hooks for automated code quality checks
 
 ### Important Implementation Details
-- Cluster version: 1.32 (hardcoded, but can be made configurable)
+- Cluster version: Configurable via Pulumi config
+- Node AMI: AL2023_x86_64_STANDARD (Amazon Linux 2023)
 - Node labeling: Worker nodes automatically labeled with environment tags
 - NAT Gateways: 1 for staging (cost optimization), 3 for production (high availability)
 - Security: Private endpoint enabled, public endpoint configurable
+- Encryption: Optional KMS encryption for secrets
 - Authentication: Standard EKS authentication using AWS CLI and kubeconfig
-- Access control: Can be configured via Pulumi config (admin-user-arn)
 - VPC Endpoints: S3 (free), EC2, and STS interface endpoints for cost optimization
-- Configuration: All settings managed through Pulumi config with sensible defaults
+- Configuration: All settings managed through Pulumi config with validation
+- ALB Controller: Optional IRSA role creation for AWS Load Balancer Controller
 
 ### Code Quality Features
-- **Helper Functions**: Reusable functions for IAM role creation and policy attachment
-- **Centralized Configuration**: All settings managed through `config_vars` dictionary
-- **Environment Abstraction**: Single codebase handles multiple environments
-- **Type Hints**: Python type annotations for better code clarity
-- **DRY Principles**: Eliminates code duplication through smart abstractions
+- **Modular Architecture**: Code organized into logical modules (iam, vpc, config, etc.)
+- **Type Safety**: Comprehensive type hints using Python's typing module
+- **Input Validation**: Configuration validation with meaningful error messages
+- **Centralized Configuration**: All settings managed through EKSConfig class
+- **Security Best Practices**: KMS encryption support, configurable egress rules
+- **Constants Management**: AWS ARNs and defaults in dedicated constants file
+- **DRY Principles**: Reusable functions eliminate code duplication
 
 ### Before First Use
 1. Ensure AWS credentials are configured
