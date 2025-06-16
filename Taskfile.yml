@@ -36,6 +36,13 @@ tasks:
       - uv sync --all-extras
     silent: true
 
+  deps:upgrade:
+    desc: "Upgrade Python dependencies for Pulumi using uv and pyproject.toml (from pulumi directory)"
+    dir: pulumi
+    cmds:
+      - uv sync --all-extras --upgrade
+    silent: true
+
   lock:
     desc: "Generate or update uv.lock from pyproject.toml using uv (from pulumi directory)"
     dir: pulumi
